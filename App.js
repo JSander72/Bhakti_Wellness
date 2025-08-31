@@ -2,101 +2,10 @@
 // Expo-ready React Native screen matching the provided mockup
 import React, { useMemo, useState } from "react";
 import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from "react-native";
+import Navigation from './app/navigation';
 
 export default function App() {
-  const [bpm, setBpm] = useState("6");
-  const [inhale, setInhale] = useState("0");
-  const [pause1, setPause1] = useState("0");
-  const [exhale, setExhale] = useState("0");
-  const [pause2, setPause2] = useState("0");
-  const [timerMin, setTimerMin] = useState(5);
-
-  const usingLengths = useMemo(() => {
-    const n = [inhale, pause1, exhale, pause2].map((v) => Number(v || 0));
-    return n.some((v) => v > 0);
-  }, [inhale, pause1, exhale, pause2]);
-
-  const handleStart = () => {
-    // TODO: Hook up animation/timer logic.
-    // For now we just log the config.
-    const cfg = usingLengths
-      ? {
-          mode: "lengths",
-          inhale: Number(inhale || 0),
-          pause1: Number(pause1 || 0),
-          exhale: Number(exhale || 0),
-          pause2: Number(pause2 || 0),
-          timerMin,
-        }
-      : { mode: "bpm", bpm: Number(bpm || 0), timerMin };
-    console.log("Start with:", cfg);
-    alert("Start pressed. Check console for config.\nYou can wire this into your breathing animation next.");
-  };
-
-  const changeNumber = (setter) => (text) => {
-    // Enforce numeric-only input
-    const cleaned = text.replace(/[^0-9.]/g, "");
-    setter(cleaned);
-  };
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Logo */}
-        <View style={styles.logoBox}>
-          <Text style={styles.logoLeaf}>🌱</Text>
-        </View>
-
-        {/* Title */}
-        <Text style={styles.title}>Bhakti Breath Pacer</Text>
-
-        {/* BPM selector */}
-        <Text style={styles.subtitle}>How many breaths per minute{"\n"}do you want?</Text>
-        <View style={[styles.inputPill, usingLengths && styles.inputPillDisabled]}> 
-          <TextInput
-            value={bpm}
-            onChangeText={changeNumber(setBpm)}
-            keyboardType="numeric"
-            style={[styles.inputText, usingLengths && styles.disabledText]}
-            editable={!usingLengths}
-            placeholder="6"
-            placeholderTextColor={COLORS.bgDark}
-          />
-        </View>
-
-        {/* OR divider */}
-        <Text style={styles.or}>OR</Text>
-        <Text style={styles.subtitle}>Enter length of:</Text>
-
-        {/* Length rows */}
-        <View style={styles.rows}>
-          <FieldRow label="Inhale" value={inhale} onChangeText={changeNumber(setInhale)} />
-          <FieldRow label="Pause" value={pause1} onChangeText={changeNumber(setPause1)} />
-          <FieldRow label="Exhale" value={exhale} onChangeText={changeNumber(setExhale)} />
-          <FieldRow label="Pause" value={pause2} onChangeText={changeNumber(setPause2)} />
-        </View>
-
-        {/* Hairline */}
-        <View style={styles.hairline} />
-
-        {/* Timer */}
-        <View style={styles.timerRow}>
-          <Text style={styles.timerLabel}>Timer</Text>
-          <Pressable style={styles.timerPill} onPress={() => setTimerMin((m) => (m === 5 ? 10 : m === 10 ? 15 : 5))}>
-            <Text style={styles.timerText}>{timerMin} minutes</Text>
-          </Pressable>
-        </View>
-
-        {/* Start button */}
-        <Pressable style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.9 }]} onPress={handleStart}>
-          <Text style={styles.startText}>Start</Text>
-        </Pressable>
-
-        {/* Spacing at bottom */}
-        <View style={{ height: 24 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
+  return <Navigation />;
 }
 
 function FieldRow({ label, value, onChangeText }) {
