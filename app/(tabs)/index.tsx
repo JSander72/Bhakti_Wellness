@@ -1,11 +1,23 @@
-import React from "react";
-import { SafeAreaView } from "react-native";
-import BreathPacer from "../../components/BreathPacer"; // <- your file path
+// app/(tabs)/index.tsx
+import React from 'react';
+import { View, Button } from 'react-native';
+import { router } from 'expo-router';
 
-export default function Home() {
+export default function HomeTab() {
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <BreathPacer />
-    </SafeAreaView>
+    <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+      <Button
+        title="Start Session"
+        onPress={() =>
+          router.push({
+            pathname: '/session',
+            params: {
+              cycleDurationMs: '4000', // change to '4800' for 4.8s cycles, etc.
+              totalBreaths: '5',
+            },
+          })
+        }
+      />
+    </View>
   );
 }
