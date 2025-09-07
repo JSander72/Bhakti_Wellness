@@ -13,7 +13,7 @@ export default function Home() {
 
   const begin = () => {
     router.push({
-      pathname: '/session',
+      pathname: '/(tabs)/session',
       params: {
         startedAt,
         inhale: String(inhale),

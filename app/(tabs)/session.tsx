@@ -6,8 +6,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function Session() {
   useKeepAwake();
-
-  // Read optional params: /session?cycleDurationMs=4800&totalBreaths=6
+  
+  // Read optional params: /(tabs)/session?cycleDurationMs=4800&totalBreaths=6
   const params = useLocalSearchParams<{
     cycleDurationMs?: string;
     totalBreaths?: string;
@@ -16,6 +16,7 @@ export default function Session() {
 
   const cycleDurationMs = Number(params.cycleDurationMs ?? 4000);
   const totalBreaths = Number(params.totalBreaths ?? 5);
+
 
   const injected = useMemo(
     () => `

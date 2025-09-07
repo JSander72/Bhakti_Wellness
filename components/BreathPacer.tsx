@@ -6,12 +6,6 @@ import {router} from 'expo-router';
 // # and start a session. It doesn’t do any animation or timing itself;
 // # that’s handled in SessionScreen.
 
-// wherever your Start handler is:
-const onStart = () => {
-  const date = new Date().toISOString(); // or your saved date
-  router.push({ pathname: 'session', params: { date } });
-};
-
 
 export default function BreathPacer() {
   const [bpm, setBpm] = useState<string>("6");
@@ -27,14 +21,28 @@ export default function BreathPacer() {
   }, [inhale, pause1, exhale, pause2]);
 
   const handleStart = () => {
-    const cfg = usingLengths
-      ? { mode: "lengths" as const, inhale: +inhale || 0, pause1: +pause1 || 0, exhale: +exhale || 0, pause2: +pause2 || 0, timerMin }
-      : { mode: "bpm" as const, bpm: +bpm || 0, timerMin };
-    console.log("Start with:", cfg);
-    alert("Start pressed. Check console for config.\nWire this into your animation/timer next.");
-  };
+  // Example mapping:
+  // - If using BPM, you might compute a cycle (inhale+exhale) from bpm: 60_000 / bpm
+  // - If using custom lengths, compute cycle = (inhale + pause1 + exhale + pause2) * 1000
+  const cycleDurationMs = usingLengths
+    ? ( ( +inhale + +pause1 + +exhale + +pause2 ) || 0 ) * 1000
+    : Math.round(60000 / ( +bpm || 6 ));
 
-  const changeNumber = (setter: (v: string) => void) => (text: string) => setter(text.replace(/[^0-9.]/g, ""));
+  const totalBreaths = Math.max(1, Math.round((timerMin * 60_000) / Math.max(1, cycleDurationMs)));
+
+  router.push({
+    pathname: '/(tabs)/session',
+    params: {
+      date: new Date().toISOString(),
+      cycleDurationMs: String(cycleDurationMs),
+      totalBreaths: String(totalBreaths),
+    },
+  });
+};
+
+  function changeNumber(setter: (v: string) => void) {
+    return (text: string) => setter(text.replace(/[^0-9.]/g, ""));
+  }
 
   return (
     <SafeAreaView style={styles.safe}>

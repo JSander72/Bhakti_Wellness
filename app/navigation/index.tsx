@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import SessionScreen from './SessionScreens';
+import Session from '../SessionScreens';
 
 const Stack = createStackNavigator();
 
@@ -11,7 +11,7 @@ const Navigation = () => {
       <Stack.Navigator>
         <Stack.Screen 
           name="Session" 
-          component={SessionScreen} 
+          component={Session} 
           options={{ title: 'Breath Session' }} 
         />
       </Stack.Navigator>
