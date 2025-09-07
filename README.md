@@ -1,27 +1,50 @@
+
 # Bhakti Breath Pacer – Expo Router App 🌱
 
-This project is an [Expo](https://expo.dev) app scaffolded with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app) and using [Expo Router](https://docs.expo.dev/router/introduction/) for navigation.
+This project is an [Expo](https://expo.dev) app scaffolded with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app) and using [Expo Router](https://docs.expo.dev/router/introduction/) for navigation. The app guides users through a simple, focused breathing session with a clear, step-by-step navigation flow.
+
+## App Navigation Flow
+
+1. **App Launch:**
+
+- The app starts and immediately redirects to the splash screen (`/splash`).
+
+2. **Splash Screen:**
+
+- The user sees a welcome message and taps **Start**.
+- Tapping Start navigates to the Home screen (`/(tabs)`), which shows the BreathPacer UI.
+
+3. **Home (BreathPacer):**
+
+- The user sets their breathing parameters (BPM or custom lengths, timer duration).
+- Pressing **Start** computes the session parameters and navigates to the Session screen, passing the config.
+
+4. **Session Screen:**
+
+- The session screen receives the parameters and (in future) will animate the breathing cycle and countdown.
 
 ## Project structure
 
 ```
 app/
-  _layout.tsx          // Root stack layout
-  (tabs)/
-    _layout.tsx        // Tabs layout (Home + Explore)
-    index.tsx          // Home tab – shows BreathPacer screen
-    explore.tsx        // Explore tab (default template)
+  index.tsx            // Redirects to splash screen
   splash.tsx           // Splash / Welcome screen
-  session.tsx          // Breathing session screen (after Start)
+  (tabs)/
+   _layout.tsx        // Tabs layout (Home + Explore)
+   index.tsx          // Home tab – shows BreathPacer screen
+   explore.tsx        // Explore tab (default template)
+   session.tsx        // Breathing session screen (after Start)
 components/
   BreathPacer.tsx      // Main breathing pacer UI
 ```
 
-- `app/(tabs)/index.tsx` is the **Home tab**, rendering the `BreathPacer` screen.
-- `app/index.tsx` was removed to avoid duplicate `index` routes. The root now redirects straight into the `(tabs)` group.
+- `app/index.tsx` redirects to the splash screen.
+- `app/splash.tsx` is the welcome screen with a Start button.
+- `app/(tabs)/index.tsx` is the Home tab, rendering the `BreathPacer` screen.
+- `app/(tabs)/session.tsx` is the session screen (receives params from BreathPacer).
 - The project uses **TypeScript** by default, but JS will work too.
 
-## Getting started
+## Getting Started
 
 1. **Install dependencies**
 
@@ -41,7 +64,7 @@ components/
    - Scan the QR code with the **Expo Go** app (from App/Play Store).
    - Or use iOS simulator / Android emulator.
 
-## Development notes
+## Development Notes
 
 - If you see version mismatches, run:
   
@@ -60,12 +83,19 @@ components/
 
 - **Expo Router** uses file-based routing. The file/folder structure inside `app/` defines the navigation.
 
-## Adding new features
+## User Flow Example
 
-### Splash Page → Home screen link
+1. Launch the app (in Expo Go or simulator).
+2. See the splash screen. Tap **Start**.
+3. On the Home screen, set your breathing parameters and tap **Start**.
+4. The app navigates to the Session screen, where your session will run (animation coming soon).
+
+## Adding New Features
+
+### Splash Page → Home Screen Link
 
 - Add a new file: `app/splash.tsx`
- 
+
 - Example:
 <!-- tsx
   import { View, Text, Pressable } from "react-native";
@@ -85,12 +115,11 @@ components/
     );
   } -->
 
-
 - This creates a **Splash page**. Pressing **Start** will navigate the user into the Tabs layout (where `index.tsx` shows the BreathPacer).
 
-### Start → Session flow (sample implementation)
+### Start → Session Flow
 
-We included a sample **Session** screen at `app/session.tsx` and updated `components/BreathPacer.tsx` to navigate there with the selected configuration.
+The app includes a **Session** screen at `app/(tabs)/session.tsx` and the `BreathPacer` component navigates there with the selected configuration.
 
 - **In `components/BreathPacer.tsx`**, replace the existing `handleStart` with:
 <!-- tsx
@@ -233,12 +262,12 @@ We included a sample **Session** screen at `app/session.tsx` and updated `compon
 -->
 
 > Notes:
-> 
+>
 > - This is a minimal demo: it animates a circle size for **Inhale / Exhale / Hold** and tracks a session countdown. When time hits 0, it navigates back.
 > - If you passed BPM instead of lengths, it defaults to 50/50 inhale/exhale.
 > - You can refine the pattern split or add haptics/sounds (we already include `expo-haptics` in dependencies).
 
-## Team workflow
+## Team Workflow
 
 - All team members should:
   1. Pull latest code.
@@ -246,14 +275,13 @@ We included a sample **Session** screen at `app/session.tsx` and updated `compon
   3. Use `npx expo start --tunnel` for consistent device testing.
   4. Edit or add screens inside the `app/` directory.
 
-
 - All team members should:
   1. Pull latest code.
   2. Run `npm install`.
   3. Use `npx expo start --tunnel` for consistent device testing.
   4. Edit or add screens inside the `app/` directory.
 
-## Learn more
+## Learn More
 
 - [Expo documentation](https://docs.expo.dev/)
 - [Expo Router introduction](https://docs.expo.dev/router/introduction/)
