@@ -1,5 +1,17 @@
 import React, { useMemo, useState } from "react";
 import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from "react-native";
+import {router} from 'expo-router';
+
+// # BreathPacer component lets user set breathing parameters
+// # and start a session. It doesn’t do any animation or timing itself;
+// # that’s handled in SessionScreen.
+
+// wherever your Start handler is:
+const onStart = () => {
+  const date = new Date().toISOString(); // or your saved date
+  router.push({ pathname: 'session', params: { date } });
+};
+
 
 export default function BreathPacer() {
   const [bpm, setBpm] = useState<string>("6");

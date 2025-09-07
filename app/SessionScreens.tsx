@@ -1,7 +1,24 @@
 import React, { useMemo, useCallback } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, Text } from "react-native";
 import { WebView } from "react-native-webview";
 import { useKeepAwake } from "expo-keep-awake"; // keeps screen on during session
+import { Stack, useLocalSearchParams } from "expo-router";
+
+export default function Session() {
+  const { date } = useLocalSearchParams<{ date?: string }>();
+
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Session' }} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 24, fontWeight: '600' }}>Breath Session</Text>
+        <Text style={{ marginTop: 8 }}>
+          {date ? `Started: ${new Date(date).toLocaleString()}` : 'No date passed'}
+        </Text>
+      </View>
+    </>
+  );
+}
 
 type SessionScreenProps = {
   route?: {

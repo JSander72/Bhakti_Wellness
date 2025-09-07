@@ -1,5 +1,26 @@
 {
   "expo": {
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+      },
+      "ios": {
+        "splash": {
+          "image": "./assets/images/splash-icon.png"
+        },
+        "supportsTablet": true
+      },
+    "android": {
+        "splash": {
+          "image": "./assets/images/splash-icon.png"
+        },
+        "adaptiveIcon": {
+          "foregroundImage": "./assets/images/adaptive-icon.png",
+          "backgroundColor": "#ffffff"
+        },
+        "edgeToEdgeEnabled": true
+      },
     "name": "bhakti-breath-pacer",
     "slug": "bhakti-breath-pacer",
     "version": "1.0.0",
@@ -8,16 +29,6 @@
     "scheme": "bhaktibreathpacer",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
-    },
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -46,4 +57,6 @@
     },
     "owner": "sanders_aas"
   }
+  
 }
+
