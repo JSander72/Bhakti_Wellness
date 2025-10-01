@@ -1,6 +1,6 @@
+import { router } from 'expo-router';
 import React, { useMemo, useState } from "react";
-import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, ScrollView } from "react-native";
-import {router} from 'expo-router';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 // # BreathPacer component lets user set breathing parameters
 // # and start a session. It doesn’t do any animation or timing itself;
@@ -13,7 +13,7 @@ export default function BreathPacer() {
   const [pause1, setPause1] = useState<string>("0");
   const [exhale, setExhale] = useState<string>("0");
   const [pause2, setPause2] = useState<string>("0");
-  const [timerMin, setTimerMin] = useState<number>(5);
+  const [timerMin, setTimerMin] = useState<string>("5");
 
   const usingLengths = useMemo(() => {
     const n = [inhale, pause1, exhale, pause2].map((v) => Number(v || 0));
@@ -28,7 +28,7 @@ export default function BreathPacer() {
     ? ( ( +inhale + +pause1 + +exhale + +pause2 ) || 0 ) * 1000
     : Math.round(60000 / ( +bpm || 6 ));
 
-  const totalBreaths = Math.max(1, Math.round((timerMin * 60_000) / Math.max(1, cycleDurationMs)));
+  const totalBreaths = Math.max(1, Math.round(((+timerMin || 5) * 60_000) / Math.max(1, cycleDurationMs)));
 
   router.push({
     pathname: '/(tabs)/session',
@@ -74,9 +74,17 @@ export default function BreathPacer() {
         <View style={styles.hairline} />
         <View style={styles.timerRow}>
           <Text style={styles.timerLabel}>Timer</Text>
-          <Pressable style={styles.timerPill} onPress={() => setTimerMin((m) => (m === 5 ? 10 : m === 10 ? 15 : 5))}>
-            <Text style={styles.timerText}>{timerMin} minutes</Text>
-          </Pressable>
+          <View style={styles.timerPill}>
+            <TextInput
+              value={timerMin}
+              onChangeText={changeNumber(setTimerMin)}
+              keyboardType="numeric"
+              style={styles.timerText}
+              placeholder="5"
+              placeholderTextColor="#6B6B6B"
+            />
+            <Text style={styles.minutesLabel}>minutes</Text>
+          </View>
         </View>
         <Pressable style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.9 }]} onPress={handleStart}>
           <Text style={styles.startText}>Start</Text>
@@ -133,8 +141,9 @@ const styles = StyleSheet.create({
   hairline: { width: "96%", height: 2, backgroundColor: COLORS.cream, opacity: 0.5, alignSelf: "center", marginTop: 18 },
   timerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginTop: 22 },
   timerLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "700" },
-  timerPill: { backgroundColor: COLORS.cream, borderRadius: 12, paddingHorizontal: 18, height: 56, alignItems: "center", justifyContent: "center" },
-  timerText: { fontSize: 22, fontWeight: "700", color: "#1A1A1A" },
+  timerPill: { backgroundColor: COLORS.cream, borderRadius: 12, paddingHorizontal: 18, height: 56, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
+  timerText: { fontSize: 22, fontWeight: "700", color: "#1A1A1A", minWidth: 40, textAlign: "center" },
+  minutesLabel: { fontSize: 22, fontWeight: "700", color: "#1A1A1A" },
   startBtn: { marginTop: 26, backgroundColor: COLORS.red, borderRadius: 24, height: 72, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
   startText: { color: "#fff", fontSize: 34, fontWeight: "800" },
 });
