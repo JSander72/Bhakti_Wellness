@@ -23,7 +23,7 @@ export default function Session() {
 type SessionScreenProps = {
   route?: {
     params?: {
-      cycleDurationMs?: number; // # total time for inhale+exhale; defaults 4000
+      cycleDurationMs?: number; 
       totalBreaths?: number;    // # total guided breaths; defaults 5
     };
   };
@@ -99,82 +99,80 @@ const SessionScreen: React.FC<SessionScreenProps> = ({ route, navigation }) => {
   <div id="instructions">Get Ready…</div>
   <div id="breathCount"></div>
 
-  <script>
-    // # Pull cycleDuration/totalBreaths from RN (injected before load)
-    const cfg = (window.__RN_CONFIG__ || {});
-    const cycleDuration = Number(cfg.cycleDuration) || 4000; // # ms for inhale+exhale
-    const totalBreaths  = Number(cfg.totalBreaths)  || 5;    // # breaths to guide
+<script>
+  const cfg = (window.__RN_CONFIG__ || {});
+  const cycleDuration = Number(cfg.cycleDuration) || 4000; // inhale+exhale
+  const totalBreaths  = Number(cfg.totalBreaths)  || 5;
 
-    const canvas = document.getElementById("wave");
-    const ctx = canvas.getContext("2d");
-    const W = canvas.width;
-    const H = canvas.height;
+  const canvas = document.getElementById("wave");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  const H = canvas.height;
 
-    const instructionEl = document.getElementById("instructions");
-    const breathCountEl = document.getElementById("breathCount");
+  const instructionEl = document.getElementById("instructions");
+  const breathCountEl = document.getElementById("breathCount");
 
-    let time = 0;
-    const speed = 0.02;
+  let breathsRemaining = totalBreaths;
+  let lastCycle = Math.floor(Date.now() / cycleDuration);
 
-    let breathsRemaining = totalBreaths;
-    let lastCycle = Math.floor(Date.now() / cycleDuration);
+  let xPos = 0; // where the line is being drawn
 
-    function drawWave(amplitude) {
-      ctx.clearRect(0, 0, W, H);
-      ctx.beginPath();
-      ctx.moveTo(0, H / 2);
+  function animate() {
+    requestAnimationFrame(animate);
 
-      for (let x = 0; x <= W; x++) {
-        let y = H/2 + Math.sin(x * 0.02 + time) * amplitude;
-        ctx.lineTo(x, y);
-      }
+    const now = Date.now();
+    const t = (now % cycleDuration) / cycleDuration; // 0 → 1 through inhale+exhale
 
-      ctx.strokeStyle = "#00ffcc";
-      ctx.lineWidth = 3;
-      ctx.stroke();
+    // y goes up on inhale (0→0.5), down on exhale (0.5→1)
+    const y =
+      H/2 - Math.sin(t * Math.PI) * (H/3); 
+    // (H/2 baseline, amplitude = H/3)
+
+    const cycleIndex = Math.floor(now / cycleDuration);
+    if (cycleIndex !== lastCycle) {
+      lastCycle = cycleIndex;
+      if (breathsRemaining > 0) breathsRemaining--;
     }
 
-    function animate() {
-      requestAnimationFrame(animate);
-
-      time += speed;
-
-      const now = Date.now();
-      const t = (now % cycleDuration) / cycleDuration; // # phase: 0 → 1
-      const amplitude = H/4 * Math.sin(t * Math.PI);   // # inhale↑, exhale↓
-
-      const cycleIndex = Math.floor(now / cycleDuration);
-
-      // # Detect new inhale/exhale cycle rollover & decrement breaths
-      if (cycleIndex !== lastCycle) {
-        lastCycle = cycleIndex;
-        if (breathsRemaining > 0) breathsRemaining--;
-      }
-
-      if (breathsRemaining === 0) {
-        instructionEl.textContent = "Session Complete 🌟";
-        breathCountEl.textContent = "";
-
-        // # Notify React Native once (idempotent)
-        if (!window.__sentComplete__) {
-          window.__sentComplete__ = true;
-          try {
-            window.ReactNativeWebView && window.ReactNativeWebView.postMessage(
+    if (breathsRemaining === 0) {
+      instructionEl.textContent = "Session Complete 🌟";
+      breathCountEl.textContent = "";
+      if (!window.__sentComplete__) {
+        window.__sentComplete__ = true;
+        try {
+          window.ReactNativeWebView &&
+            window.ReactNativeWebView.postMessage(
               JSON.stringify({ type: "session-complete" })
             );
-          } catch (e) {}
-        }
-      } else {
-        // # First half: inhale; second half: exhale
-        instructionEl.textContent = (t < 0.5) ? "Inhale…" : "Exhale…";
-        breathCountEl.textContent = "Breaths Remaining: " + breathsRemaining;
+        } catch (e) {}
       }
-
-      drawWave(amplitude);
+    } else {
+      instructionEl.textContent = t < 0.5 ? "Inhale…" : "Exhale…";
+      breathCountEl.textContent = "Breaths Remaining: " + breathsRemaining;
     }
 
-    animate();
-  </script>
+    // draw the line progressively
+    ctx.strokeStyle = "#00ffcc";
+    ctx.lineWidth = 3;
+
+    if (xPos === 0) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+    }
+    ctx.lineTo(xPos, y);
+    ctx.stroke();
+
+    xPos++;
+    if (xPos > W) {
+      // reset to start once it reaches the end
+      xPos = 0;
+    }
+  }
+
+  animate();
+</script>
+
 </body>
 </html>
   `;
