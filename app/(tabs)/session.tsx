@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -39,7 +39,7 @@ export default function Session() {
   const progressWidth = useRef(new Animated.Value(0)).current;
   
   // Audio
-  const soundRef = useRef<Audio.Sound | null>(null);
+  // Note: Audio file loading will be implemented when sound files are added
   
   // Session timing
   const sessionStartTime = useRef<number | null>(null);
@@ -53,16 +53,12 @@ export default function Session() {
     if (selectedSound !== 'none') {
       setupAudio();
     }
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
-    };
+    // Cleanup function no longer needed with expo-audio
   }, [selectedSound]);
 
   const setupAudio = async () => {
     try {
-      await Audio.setAudioModeAsync({
+      await setAudioModeAsync({
         allowsRecordingIOS: false,
         staysActiveInBackground: true,
         playsInSilentModeIOS: true,
@@ -71,7 +67,7 @@ export default function Session() {
       });
 
       // For now, we'll create a simple white noise effect
-      // In a real implementation, you'd load actual sound files
+      // In a real implementation, you'd load actual sound files using expo-audio
       if (selectedSound !== 'none') {
         console.log('Audio setup complete for:', selectedSound);
       }
