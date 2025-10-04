@@ -1,3 +1,4 @@
+import { SoundGenerator } from '@/utils/soundGenerator';
 import { setAudioModeAsync } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -39,7 +40,7 @@ export default function Session() {
   const progressWidth = useRef(new Animated.Value(0)).current;
   
   // Audio
-  // Note: Audio file loading will be implemented when sound files are added
+  const soundGenerator = useRef<SoundGenerator | null>(null);
   
   // Session timing
   const sessionStartTime = useRef<number | null>(null);
@@ -50,10 +51,19 @@ export default function Session() {
 
   // Initialize audio
   useEffect(() => {
+    // Initialize sound generator
+    soundGenerator.current = new SoundGenerator();
+    
     if (selectedSound !== 'none') {
       setupAudio();
     }
-    // Cleanup function no longer needed with expo-audio
+    
+    // Cleanup function
+    return () => {
+      if (soundGenerator.current) {
+        soundGenerator.current.stop();
+      }
+    };
   }, [selectedSound]);
 
   const setupAudio = async () => {
@@ -66,10 +76,14 @@ export default function Session() {
         playThroughEarpieceAndroid: false,
       });
 
-      // For now, we'll create a simple white noise effect
-      // In a real implementation, you'd load actual sound files using expo-audio
-      if (selectedSound !== 'none') {
-        console.log('Audio setup complete for:', selectedSound);
+      // Start background sound if one is selected
+      if (selectedSound !== 'none' && soundGenerator.current) {
+        if (soundGenerator.current.getIsSupported()) {
+          await soundGenerator.current.start(selectedSound);
+          console.log('Background sound started:', selectedSound);
+        } else {
+          console.log('Background sound not supported on this platform:', selectedSound);
+        }
       }
     } catch (error) {
       console.log('Audio setup failed:', error);
@@ -176,11 +190,16 @@ export default function Session() {
         animationRef.current = null;
       }
       
+      // Stop background sound
+      if (soundGenerator.current) {
+        soundGenerator.current.stop();
+      }
+      
       setTimeout(() => {
         Alert.alert(
           'Breath Session Complete', 
           'Great job! You completed your breathing session 🌟', 
-          [{ text: 'OK', onPress: () => router.back() }]
+          [{ text: 'OK', onPress: () => router.push('/') }]
         );
       }, 1500);
       return;
@@ -237,6 +256,10 @@ export default function Session() {
       clearTimeout(timer);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+      }
+      // Stop background sound on cleanup
+      if (soundGenerator.current) {
+        soundGenerator.current.stop();
       }
     };
   }, [startSession]);
