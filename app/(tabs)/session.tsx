@@ -1,9 +1,8 @@
-import { SoundGenerator } from '@/utils/soundGenerator';
-import { setAudioModeAsync } from 'expo-audio';
+import { ProductionSoundManager } from '@/utils/productionSoundManager';
 import { useKeepAwake } from 'expo-keep-awake';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, StyleSheet, Text, View } from 'react-native';
 
 export default function Session() {
   useKeepAwake();
@@ -28,58 +27,39 @@ export default function Session() {
   const exhaleMs = Number(params.exhaleMs ?? cycleDurationMs * 0.6);
   const pause2Ms = Number(params.pause2Ms ?? 0);
 
+  // Calculate total session duration
+  const totalSessionMs = totalBreaths * cycleDurationMs;
+
   // Animation and state
   const [currentBreath, setCurrentBreath] = useState(0);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'inhale' | 'pause1' | 'exhale' | 'pause2' | 'complete'>('ready');
   const [sessionStarted, setSessionStarted] = useState(false);
-  const [phaseProgress, setPhaseProgress] = useState(0);
+  const [remainingTimeMs, setRemainingTimeMs] = useState(totalSessionMs);
   
   // Animated values
   const breathingBallScale = useRef(new Animated.Value(1)).current;
   const breathingBallOpacity = useRef(new Animated.Value(0.8)).current;
   const progressWidth = useRef(new Animated.Value(0)).current;
+  const instructionOpacity = useRef(new Animated.Value(1)).current;
+  const phaseProgressWidth = useRef(new Animated.Value(0)).current;
+  const completionScale = useRef(new Animated.Value(0)).current;
   
   // Audio
-  const soundGenerator = useRef<SoundGenerator | null>(null);
+  const soundManager = useRef<ProductionSoundManager | null>(null);
   
   // Session timing
   const sessionStartTime = useRef<number | null>(null);
   const phaseStartTime = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
 
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
   // Initialize audio
-  useEffect(() => {
-    // Initialize sound generator
-    soundGenerator.current = new SoundGenerator();
-    
-    if (selectedSound !== 'none') {
-      setupAudio();
-    }
-    
-    // Cleanup function
-    return () => {
-      if (soundGenerator.current) {
-        soundGenerator.current.stop();
-      }
-    };
-  }, [selectedSound]);
-
-  const setupAudio = async () => {
+  const setupAudio = useCallback(async () => {
     try {
-      await setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
-
+      // Note: Audio mode is now handled by ProductionSoundManager
       // Start background sound if one is selected
-      if (selectedSound !== 'none' && soundGenerator.current) {
-        if (soundGenerator.current.getIsSupported()) {
-          await soundGenerator.current.start(selectedSound);
+      if (selectedSound !== 'none' && soundManager.current) {
+        if (soundManager.current.getIsSupported()) {
+          await soundManager.current.start(selectedSound);
           console.log('Background sound started:', selectedSound);
         } else {
           console.log('Background sound not supported on this platform:', selectedSound);
@@ -88,7 +68,50 @@ export default function Session() {
     } catch (error) {
       console.log('Audio setup failed:', error);
     }
-  };
+  }, [selectedSound]);
+
+  useEffect(() => {
+    // Initialize sound manager
+    soundManager.current = new ProductionSoundManager();
+    
+    if (selectedSound !== 'none') {
+      setupAudio();
+    }
+    
+    // Cleanup function - runs when component unmounts or dependencies change
+    return () => {
+      console.log('Session component cleanup - stopping audio');
+      if (soundManager.current) {
+        soundManager.current.stop();
+        console.log('✅ Audio stopped during component cleanup');
+      }
+    };
+  }, [selectedSound, setupAudio]);
+
+  // Handle navigation focus/blur to stop sounds when leaving the tab
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Session tab focused');
+      
+      // Tab is focused - restart audio if needed and session is active
+      if (selectedSound !== 'none' && soundManager.current && sessionStarted) {
+        if (!soundManager.current.getIsPlaying()) {
+          console.log('Restarting audio on focus:', selectedSound);
+          setupAudio();
+        }
+      }
+
+      // Return cleanup function for when tab loses focus
+      return () => {
+        console.log('Session tab lost focus - stopping audio');
+        // Tab is losing focus - always stop any playing sounds
+        if (soundManager.current) {
+          soundManager.current.stop();
+          console.log('✅ Background sound stopped due to navigation away from session');
+        }
+      };
+    }, [selectedSound, setupAudio, sessionStarted])
+  );
 
   const getPhaseInfo = useCallback((elapsed: number) => {
     const cycleTime = elapsed % cycleDurationMs;
@@ -131,42 +154,48 @@ export default function Session() {
   const animateBreathingBall = useCallback((phase: string, progress: number) => {
     let targetScale = 1;
     let targetOpacity = 0.8;
+    let animationDuration = 200; // Default smooth animation
 
     switch (phase) {
       case 'inhale':
         targetScale = 1 + (progress * 0.8); // Scale from 1 to 1.8
         targetOpacity = 0.6 + (progress * 0.4); // Opacity from 0.6 to 1
+        animationDuration = Math.min(300, inhaleMs / 10); // Smoother for longer inhales
         break;
       case 'pause1':
         targetScale = 1.8;
         targetOpacity = 1;
+        animationDuration = 150;
         break;
       case 'exhale':
         targetScale = 1.8 - (progress * 0.8); // Scale from 1.8 to 1
         targetOpacity = 1 - (progress * 0.2); // Opacity from 1 to 0.8
+        animationDuration = Math.min(300, exhaleMs / 10); // Smoother for longer exhales
         break;
       case 'pause2':
         targetScale = 1;
         targetOpacity = 0.8;
+        animationDuration = 150;
         break;
       default:
         targetScale = 1;
         targetOpacity = 0.8;
+        animationDuration = 200;
     }
 
     Animated.parallel([
       Animated.timing(breathingBallScale, {
         toValue: targetScale,
-        duration: 100,
+        duration: animationDuration,
         useNativeDriver: true,
       }),
       Animated.timing(breathingBallOpacity, {
         toValue: targetOpacity,
-        duration: 100,
+        duration: animationDuration,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [breathingBallScale, breathingBallOpacity]);
+  }, [breathingBallScale, breathingBallOpacity, inhaleMs, exhaleMs]);
 
   const updateSession = useCallback(() => {
     if (!sessionStartTime.current) return;
@@ -174,6 +203,10 @@ export default function Session() {
     const elapsed = Date.now() - sessionStartTime.current;
     const newBreath = Math.floor(elapsed / cycleDurationMs);
     const overallProgress = Math.min(1, elapsed / (totalBreaths * cycleDurationMs));
+    
+    // Update remaining time
+    const remaining = Math.max(0, totalSessionMs - elapsed);
+    setRemainingTimeMs(remaining);
 
     // Update progress bar
     Animated.timing(progressWidth, {
@@ -191,17 +224,25 @@ export default function Session() {
       }
       
       // Stop background sound
-      if (soundGenerator.current) {
-        soundGenerator.current.stop();
+      if (soundManager.current) {
+        soundManager.current.stop();
       }
+      
+      // Animate completion celebration
+      Animated.spring(completionScale, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
       
       setTimeout(() => {
         Alert.alert(
           'Breath Session Complete', 
-          'Great job! You completed your breathing session 🌟', 
-          [{ text: 'OK', onPress: () => router.push('/') }]
+          'Great job! You completed your breathing session 🌟\n\nYou practiced mindful breathing and took time for yourself today.', 
+          [{ text: 'Continue', onPress: () => router.push('/') }]
         );
-      }, 1500);
+      }, 2000); // Increased delay to show celebration
       return;
     }
 
@@ -217,10 +258,28 @@ export default function Session() {
     if (phaseInfo.name !== currentPhase) {
       setCurrentPhase(phaseInfo.name);
       phaseStartTime.current = Date.now();
+      
+      // Animate instruction text transition
+      Animated.sequence([
+        Animated.timing(instructionOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(instructionOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
 
-    // Update phase progress
-    setPhaseProgress(phaseInfo.progress);
+    // Update phase progress for phase progress indicator
+    Animated.timing(phaseProgressWidth, {
+      toValue: phaseInfo.progress,
+      duration: 100,
+      useNativeDriver: false,
+    }).start();
 
     // Animate breathing ball
     animateBreathingBall(phaseInfo.name, phaseInfo.progress);
@@ -232,9 +291,13 @@ export default function Session() {
     currentPhase, 
     cycleDurationMs, 
     totalBreaths, 
+    totalSessionMs,
     getPhaseInfo, 
     animateBreathingBall, 
     progressWidth, 
+    phaseProgressWidth,
+    instructionOpacity,
+    completionScale,
     router
   ]);
 
@@ -258,8 +321,8 @@ export default function Session() {
         cancelAnimationFrame(animationRef.current);
       }
       // Stop background sound on cleanup
-      if (soundGenerator.current) {
-        soundGenerator.current.stop();
+      if (soundManager.current) {
+        soundManager.current.stop();
       }
     };
   }, [startSession]);
@@ -269,14 +332,15 @@ export default function Session() {
       case 'ready':
         return 'Get Ready';
       case 'inhale':
-        return 'Inhale';
+        return 'Breathe In';
       case 'pause1':
-      case 'pause2':
         return 'Hold';
       case 'exhale':
-        return 'Exhale';
+        return 'Breathe Out';
+      case 'pause2':
+        return 'Hold';
       case 'complete':
-        return 'Complete!';
+        return 'Well Done!';
       default:
         return 'Breathe';
     }
@@ -312,13 +376,28 @@ export default function Session() {
     }
   };
 
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={getInstructionStyle()}>{getInstructionText()}</Text>
+      <Animated.Text style={[getInstructionStyle(), { opacity: instructionOpacity }]}>
+        {getInstructionText()}
+      </Animated.Text>
       
       {sessionStarted && (
         <Text style={styles.counter}>
           Breath {currentBreath + 1} of {totalBreaths}
+        </Text>
+      )}
+
+      {sessionStarted && (
+        <Text style={styles.timer}>
+          Time Remaining: {formatTime(remainingTimeMs)}
         </Text>
       )}
 
@@ -345,6 +424,26 @@ export default function Session() {
         {/* Breathing Guide Circles */}
         <View style={[styles.guideCircle, styles.innerCircle]} />
         <View style={[styles.guideCircle, styles.outerCircle]} />
+        
+        {/* Phase Progress Indicator */}
+        {sessionStarted && currentPhase !== 'ready' && currentPhase !== 'complete' && (
+          <View style={styles.phaseProgressContainer}>
+            <View style={styles.phaseProgressBar}>
+              <Animated.View
+                style={[
+                  styles.phaseProgressFill,
+                  {
+                    width: phaseProgressWidth.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                    backgroundColor: getBallColor(),
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Progress Bar */}
@@ -363,6 +462,14 @@ export default function Session() {
           />
         </View>
       </View>
+
+      {/* Completion Celebration */}
+      {currentPhase === 'complete' && (
+        <Animated.View style={[styles.completionCelebration, { transform: [{ scale: completionScale }] }]}>
+          <Text style={styles.celebrationText}>🌟</Text>
+          <Text style={styles.celebrationMessage}>Session Complete!</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -400,9 +507,17 @@ const styles = StyleSheet.create({
   counter: {
     fontSize: 16,
     opacity: 0.7,
-    marginBottom: 40,
+    marginBottom: 10,
     color: '#fff',
     textAlign: 'center',
+  },
+  timer: {
+    fontSize: 14,
+    opacity: 0.6,
+    marginBottom: 30,
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   breathingContainer: {
     position: 'relative',
@@ -456,6 +571,23 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
   },
+  phaseProgressContainer: {
+    position: 'absolute',
+    bottom: -20,
+    width: 200,
+    alignItems: 'center',
+  },
+  phaseProgressBar: {
+    width: '100%',
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  phaseProgressFill: {
+    height: '100%',
+    borderRadius: 1.5,
+  },
   progressContainer: {
     marginTop: 40,
     width: '80%',
@@ -470,5 +602,20 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: '#00ffcc',
+  },
+  completionCelebration: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  celebrationText: {
+    fontSize: 64,
+    marginBottom: 10,
+  },
+  celebrationMessage: {
+    fontSize: 20,
+    color: '#4ecdc4',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
