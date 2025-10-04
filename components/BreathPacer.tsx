@@ -28,7 +28,7 @@ export default function BreathPacer() {
       ? ( ( +inhale + +pause1 + +exhale + +pause2 ) || 0 ) * 1000
       : Math.round(60000 / ( +bpm || 6 ));
 
-    const totalBreaths = Math.max(1, Math.round((timerMin * 60_000) / Math.max(1, cycleDurationMs)));
+    const totalBreaths = Math.max(1, Math.round((Number(timerMin) * 60_000) / Math.max(1, cycleDurationMs)));
 
     // Calculate individual phase durations in milliseconds
     let inhaleMs, pause1Ms, exhaleMs, pause2Ms;
@@ -96,9 +96,17 @@ export default function BreathPacer() {
         <View style={styles.hairline} />
         <View style={styles.timerRow}>
           <Text style={styles.timerLabel}>Timer</Text>
-          <Pressable style={styles.timerPill} onPress={() => setTimerMin((m) => (m === 5 ? 10 : m === 10 ? 15 : 5))}>
-            <Text style={styles.timerText}>{timerMin} minutes</Text>
-          </Pressable>
+          <View style={styles.timerPill}>
+            <TextInput
+              value={timerMin}
+              onChangeText={changeNumber(setTimerMin)}
+              keyboardType="numeric"
+              style={styles.timerText}
+              placeholder="5"
+              placeholderTextColor="#6B6B6B"
+            />
+            <Text style={styles.minutesLabel}>minutes</Text>
+          </View>
         </View>
         <View style={styles.hairline} />
         <View style={styles.soundSection}>
