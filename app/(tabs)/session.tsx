@@ -1,12 +1,13 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 export default function Session() {
   useKeepAwake();
   
+  const webViewRef = useRef<WebView>(null);
   const params = useLocalSearchParams<{
     cycleDurationMs?: string;
     totalBreaths?: string;
@@ -47,7 +48,7 @@ export default function Session() {
 
       true;
     `,
-    [cycleDurationMs, totalBreaths, inhaleMs, pause1Ms, exhaleMs, pause2Ms]
+    [cycleDurationMs, totalBreaths, inhaleMs, pause1Ms, exhaleMs, pause2Ms, selectedSound]
   );
 
   const onMessage = useCallback((event: any) => {
@@ -600,9 +601,17 @@ if (breathsRemaining === 0 && elapsed >= totalBreaths * cycleDuration) {
     }
     
     setTimeout(() => {
-      window.ReactNativeWebView?.postMessage(
-        JSON.stringify({ type: 'session-complete' })
-      );
+      try {
+        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+          window.ReactNativeWebView.postMessage(
+            JSON.stringify({ type: 'session-complete' })
+          );
+        } else {
+          console.log('ReactNativeWebView not available');
+        }
+      } catch (error) {
+        console.log('Error posting message:', error);
+      }
     }, 1500);
   }
   return;
@@ -653,12 +662,32 @@ if (breathsRemaining === 0 && elapsed >= totalBreaths * cycleDuration) {
   return (
     <View style={styles.container}>
       <WebView
+        ref={webViewRef}
         source={{ html: HTML }}
         injectedJavaScriptBeforeContentLoaded={injected}
         onMessage={onMessage}
         style={styles.webview}
         scrollEnabled={false}
         originWhitelist={['*']}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        allowsInlineMediaPlayback={true}
+        mediaPlaybackRequiresUserAction={false}
+        mixedContentMode="compatibility"
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView error: ', nativeEvent);
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.warn('WebView HTTP error: ', nativeEvent);
+        }}
+        onLoadStart={() => {
+          console.log('WebView load started');
+        }}
+        onLoadEnd={() => {
+          console.log('WebView load ended');
+        }}
       />
     </View>
   );

@@ -2,7 +2,19 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { LogBox } from 'react-native';
 import 'react-native-reanimated';
+
+// Suppress known development warnings
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    'props.pointerEvents is deprecated',
+    'style.resizeMode is deprecated',
+    '[Reanimated] Reduced motion setting',
+    'Could not establish connection. Receiving end does not exist',
+    'Unchecked runtime.lastError',
+  ]);
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

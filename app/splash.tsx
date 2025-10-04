@@ -1,8 +1,8 @@
 // app/splash.tsx
-import { View, Text, Pressable, Image } from 'react-native';
 import { router } from 'expo-router';
-import * as Animatable from 'react-native-animatable';
 import { Heart } from 'lucide-react-native';
+import { Image, Pressable, Text, View } from 'react-native';
+import * as Animatable from 'react-native-animatable';
 
 export default function Splash() {
   return (
@@ -18,7 +18,8 @@ export default function Splash() {
       {/* Centered image above the title */}
       <Image
         source={require('../assets/images/bhakti-logo.png')} 
-        style={{ width: 240, height: 240, resizeMode: 'contain' }}
+        resizeMode="contain"
+        style={{ width: 240, height: 240 }}
       />
 
       <Text style={{ fontSize: 28, fontWeight: '700', color: '#405b2b' }}>
