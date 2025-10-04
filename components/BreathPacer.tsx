@@ -3,8 +3,8 @@ import React, { useMemo, useState } from "react";
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 // # BreathPacer component lets user set breathing parameters
-// # and start a session. It doesn’t do any animation or timing itself;
-// # that’s handled in SessionScreen.
+// # and start a session. It doesn't do any animation or timing itself;
+// # that's handled in SessionScreen.
 
 
 export default function BreathPacer() {
@@ -20,25 +20,47 @@ export default function BreathPacer() {
     return n.some((v) => v > 0);
   }, [inhale, pause1, exhale, pause2]);
 
+  const [selectedSound, setSelectedSound] = useState<string>("none");
+
+
   const handleStart = () => {
-  // Example mapping:
-  // - If using BPM, you might compute a cycle (inhale+exhale) from bpm: 60_000 / bpm
-  // - If using custom lengths, compute cycle = (inhale + pause1 + exhale + pause2) * 1000
-  const cycleDurationMs = usingLengths
-    ? ( ( +inhale + +pause1 + +exhale + +pause2 ) || 0 ) * 1000
-    : Math.round(60000 / ( +bpm || 6 ));
+    const cycleDurationMs = usingLengths
+      ? ( ( +inhale + +pause1 + +exhale + +pause2 ) || 0 ) * 1000
+      : Math.round(60000 / ( +bpm || 6 ));
 
-  const totalBreaths = Math.max(1, Math.round(((+timerMin || 5) * 60_000) / Math.max(1, cycleDurationMs)));
+    const totalBreaths = Math.max(1, Math.round((timerMin * 60_000) / Math.max(1, cycleDurationMs)));
 
-  router.push({
-    pathname: '/(tabs)/session',
-    params: {
-      date: new Date().toISOString(),
-      cycleDurationMs: String(cycleDurationMs),
-      totalBreaths: String(totalBreaths),
-    },
-  });
-};
+    // Calculate individual phase durations in milliseconds
+    let inhaleMs, pause1Ms, exhaleMs, pause2Ms;
+    
+    if (usingLengths) {
+      // Using custom lengths - convert seconds to milliseconds
+      inhaleMs = (+inhale || 0) * 1000;
+      pause1Ms = (+pause1 || 0) * 1000;
+      exhaleMs = (+exhale || 0) * 1000;
+      pause2Ms = (+pause2 || 0) * 1000;
+    } else {
+      // Using BPM - split cycle into inhale/exhale (no pauses)
+      inhaleMs = cycleDurationMs * 0.4;
+      pause1Ms = 0;
+      exhaleMs = cycleDurationMs * 0.6;
+      pause2Ms = 0;
+    }
+
+    router.push({
+      pathname: '/(tabs)/session',
+      params: {
+        date: new Date().toISOString(),
+        cycleDurationMs: String(cycleDurationMs),
+        totalBreaths: String(totalBreaths),
+        inhaleMs: String(inhaleMs),
+        pause1Ms: String(pause1Ms),
+        exhaleMs: String(exhaleMs),
+        pause2Ms: String(pause2Ms),
+        sound: selectedSound,
+      },
+    });
+  };
 
   function changeNumber(setter: (v: string) => void) {
     return (text: string) => setter(text.replace(/[^0-9.]/g, ""));
@@ -74,17 +96,51 @@ export default function BreathPacer() {
         <View style={styles.hairline} />
         <View style={styles.timerRow}>
           <Text style={styles.timerLabel}>Timer</Text>
-          <View style={styles.timerPill}>
-            <TextInput
-              value={timerMin}
-              onChangeText={changeNumber(setTimerMin)}
-              keyboardType="numeric"
-              style={styles.timerText}
-              placeholder="5"
-              placeholderTextColor="#6B6B6B"
-            />
-            <Text style={styles.minutesLabel}>minutes</Text>
-          </View>
+          <Pressable style={styles.timerPill} onPress={() => setTimerMin((m) => (m === 5 ? 10 : m === 10 ? 15 : 5))}>
+            <Text style={styles.timerText}>{timerMin} minutes</Text>
+          </Pressable>
+        </View>
+        <View style={styles.hairline} />
+        <View style={styles.soundSection}>
+          <Text style={styles.soundLabel}>Background Sound</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.soundScroll}>
+            <Pressable 
+              style={[styles.soundOption, selectedSound === "none" && styles.soundOptionSelected]}
+              onPress={() => setSelectedSound("none")}
+            >
+              <Text style={styles.soundOptionText}>None</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.soundOption, selectedSound === "ocean" && styles.soundOptionSelected]}
+              onPress={() => setSelectedSound("ocean")}
+            >
+              <Text style={styles.soundOptionText}>Ocean</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.soundOption, selectedSound === "rain" && styles.soundOptionSelected]}
+              onPress={() => setSelectedSound("rain")}
+            >
+              <Text style={styles.soundOptionText}>Rain</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.soundOption, selectedSound === "forest" && styles.soundOptionSelected]}
+              onPress={() => setSelectedSound("forest")}
+            >
+              <Text style={styles.soundOptionText}>Forest</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.soundOption, selectedSound === "singing-bowl" && styles.soundOptionSelected]}
+              onPress={() => setSelectedSound("singing-bowl")}
+            >
+              <Text style={styles.soundOptionText}>Singing Bowl</Text>
+            </Pressable>
+            <Pressable 
+              style={[styles.soundOption, selectedSound === "white-noise" && styles.soundOptionSelected]}
+              onPress={() => setSelectedSound("white-noise")}
+            >
+              <Text style={styles.soundOptionText}>White Noise</Text>
+            </Pressable>
+          </ScrollView>
         </View>
         <Pressable style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.9 }]} onPress={handleStart}>
           <Text style={styles.startText}>Start</Text>
@@ -146,4 +202,23 @@ const styles = StyleSheet.create({
   minutesLabel: { fontSize: 22, fontWeight: "700", color: "#1A1A1A" },
   startBtn: { marginTop: 26, backgroundColor: COLORS.red, borderRadius: 24, height: 72, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
   startText: { color: "#fff", fontSize: 34, fontWeight: "800" },
+  soundSection: { width: "100%", marginTop: 22 },
+soundLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "700", marginBottom: 12 },
+soundScroll: { flexDirection: "row" },
+soundOption: { 
+  backgroundColor: COLORS.bgDark, 
+  borderRadius: 12, 
+  paddingHorizontal: 18, 
+  height: 48, 
+  alignItems: "center", 
+  justifyContent: "center",
+  marginRight: 10,
+  borderWidth: 2,
+  borderColor: "transparent"
+},
+soundOptionSelected: { 
+  borderColor: COLORS.cream,
+  backgroundColor: COLORS.cream + "20"
+},
+soundOptionText: { fontSize: 16, fontWeight: "600", color: COLORS.creamText },
 });
