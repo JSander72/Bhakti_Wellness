@@ -4,12 +4,29 @@ import { ProductionSoundManager } from '@/utils/productionSoundManager';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 
 export default function Session() {
   useKeepAwake();
   
   const router = useRouter();
+  
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const isTablet = screenWidth >= 768; // iPad and larger
+  const isSmallPhone = screenWidth < 375; // iPhone SE and smaller
+  
+  // Responsive sizing calculations
+  const responsiveWaveWidth = Math.min(screenWidth * 0.9, isTablet ? 400 : 320);
+  const responsiveWaveHeight = Math.min(screenHeight * 0.15, isTablet ? 150 : 120);
+  const responsiveCircleSize = Math.min(screenWidth * 0.8, screenHeight * 0.4, isTablet ? 500 : 350);
+  const responsiveFontSizes = {
+    instructions: isTablet ? 38 : isSmallPhone ? 28 : 32,
+    counter: isTablet ? 18 : 16,
+    timer: isTablet ? 16 : 14,
+    phaseLabel: isTablet ? 20 : 18,
+    phaseCountdown: isTablet ? 36 : 32,
+  };
   const params = useLocalSearchParams<{
     cycleDurationMs?: string;
     totalBreaths?: string;
@@ -52,6 +69,7 @@ export default function Session() {
   const [currentPhaseProgress, setCurrentPhaseProgress] = useState(0);
   const [countdownSeconds, setCountdownSeconds] = useState(10);
   const [showCountdown, setShowCountdown] = useState(true);
+  const [currentPhaseTimeRemaining, setCurrentPhaseTimeRemaining] = useState(0);
   
   // Animated values
   const [waveAmplitude, setWaveAmplitude] = useState(0.3);
@@ -130,46 +148,16 @@ export default function Session() {
     }, [selectedSound, setupAudio, sessionStarted])
   );
 
-  const getPhaseInfo = useCallback((elapsed: number) => {
-    const cycleTime = elapsed % cycleDurationMs;
-    let accumTime = 0;
-    
-    if (cycleTime < (accumTime += inhaleMs)) {
-      return { 
-        name: 'inhale' as const, 
-        progress: cycleTime / inhaleMs,
-        isNewCycle: cycleTime < 100 // First 100ms of new cycle
-      };
-    }
-    if (pause1Ms > 0 && cycleTime < (accumTime += pause1Ms)) {
-      return { 
-        name: 'pause1' as const, 
-        progress: (cycleTime - inhaleMs) / pause1Ms,
-        isNewCycle: false
-      };
-    }
-    if (cycleTime < (accumTime += exhaleMs)) {
-      const start = inhaleMs + pause1Ms;
-      return { 
-        name: 'exhale' as const, 
-        progress: (cycleTime - start) / exhaleMs,
-        isNewCycle: false
-      };
-    }
-    if (pause2Ms > 0) {
-      const start = inhaleMs + pause1Ms + exhaleMs;
-      return { 
-        name: 'pause2' as const, 
-        progress: (cycleTime - start) / pause2Ms,
-        isNewCycle: false
-      };
-    }
-    
-    return { name: 'inhale' as const, progress: 0, isNewCycle: false };
-  }, [cycleDurationMs, inhaleMs, pause1Ms, exhaleMs, pause2Ms]);
-
   const animateWaveAmplitude = useCallback((phase: string, progress: number) => {
-    // Keep consistent amplitude throughout - only change for holds
+    // Set appropriate amplitude for each phase
+    if (phase === 'ready') {
+      // Set initial amplitude during countdown/ready state
+      const targetAmplitude = 0.85;
+      setWaveAmplitude(targetAmplitude);
+      return;
+    }
+    
+    // Keep consistent amplitude throughout breathing phases - only change for holds
     if (phase === 'pause1' || phase === 'pause2') {
       // Don't change amplitude during holds - keep current amplitude
       return;
@@ -179,6 +167,68 @@ export default function Session() {
     const targetAmplitude = 0.85; // Increased from 0.6 for more dramatic waves
     setWaveAmplitude(targetAmplitude);
   }, []);
+
+  // Set initial wave amplitude for ready phase
+  useEffect(() => {
+    if (currentPhase === 'ready') {
+      animateWaveAmplitude('ready', 0);
+    }
+  }, [currentPhase, animateWaveAmplitude]);
+
+  const getPhaseInfo = useCallback((elapsed: number) => {
+    const cycleTime = elapsed % cycleDurationMs;
+    let accumTime = 0;
+    
+    if (cycleTime < (accumTime += inhaleMs)) {
+      return { 
+        name: 'inhale' as const, 
+        progress: cycleTime / inhaleMs,
+        isNewCycle: cycleTime < 100, // First 100ms of new cycle
+        phaseElapsed: cycleTime,
+        phaseDuration: inhaleMs
+      };
+    }
+    if (pause1Ms > 0 && cycleTime < (accumTime += pause1Ms)) {
+      const phaseElapsed = cycleTime - inhaleMs;
+      return { 
+        name: 'pause1' as const, 
+        progress: phaseElapsed / pause1Ms,
+        isNewCycle: false,
+        phaseElapsed,
+        phaseDuration: pause1Ms
+      };
+    }
+    if (cycleTime < (accumTime += exhaleMs)) {
+      const start = inhaleMs + pause1Ms;
+      const phaseElapsed = cycleTime - start;
+      return { 
+        name: 'exhale' as const, 
+        progress: phaseElapsed / exhaleMs,
+        isNewCycle: false,
+        phaseElapsed,
+        phaseDuration: exhaleMs
+      };
+    }
+    if (pause2Ms > 0) {
+      const start = inhaleMs + pause1Ms + exhaleMs;
+      const phaseElapsed = cycleTime - start;
+      return { 
+        name: 'pause2' as const, 
+        progress: phaseElapsed / pause2Ms,
+        isNewCycle: false,
+        phaseElapsed,
+        phaseDuration: pause2Ms
+      };
+    }
+    
+    return { 
+      name: 'inhale' as const, 
+      progress: 0, 
+      isNewCycle: false,
+      phaseElapsed: 0,
+      phaseDuration: inhaleMs
+    };
+  }, [cycleDurationMs, inhaleMs, pause1Ms, exhaleMs, pause2Ms]);
 
   const updateSession = useCallback(() => {
     if (!sessionStartTime.current) return;
@@ -239,6 +289,10 @@ export default function Session() {
     
     // Update current phase progress
     setCurrentPhaseProgress(phaseInfo.progress);
+    
+    // Calculate and update phase time remaining
+    const phaseTimeRemaining = Math.max(0, phaseInfo.phaseDuration - phaseInfo.phaseElapsed);
+    setCurrentPhaseTimeRemaining(Math.ceil(phaseTimeRemaining / 1000)); // Convert to seconds
     
     // Update phase if it changed
     if (phaseInfo.name !== currentPhase) {
@@ -313,6 +367,7 @@ export default function Session() {
 
     setSessionStarted(true);
     setCurrentPhase('inhale');
+    setCurrentPhaseProgress(0); // Start at beginning of inhale
     sessionStartTime.current = Date.now();
     phaseStartTime.current = Date.now();
     animationRef.current = requestAnimationFrame(updateSession);
@@ -371,15 +426,13 @@ export default function Session() {
       if (countdownSeconds > 3) {
         return 'Get Ready';
       } else if (countdownSeconds > 0) {
-        return `Start in ${countdownSeconds}`;
+        return countdownSeconds.toString();
       } else {
-        return 'GO!';
+        return 'Begin';
       }
     }
 
     switch (currentPhase) {
-      case 'ready':
-        return 'Get Ready';
       case 'inhale':
         return 'Breathe In';
       case 'pause1':
@@ -392,6 +445,21 @@ export default function Session() {
         return 'Well Done!';
       default:
         return 'Breathe';
+    }
+  };
+
+  const getPhaseDisplayName = () => {
+    switch (currentPhase) {
+      case 'inhale':
+        return 'Inhale';
+      case 'pause1':
+        return 'Hold';
+      case 'exhale':
+        return 'Exhale';
+      case 'pause2':
+        return 'Hold';
+      default:
+        return '';
     }
   };
 
@@ -432,6 +500,7 @@ export default function Session() {
       <Animated.Text style={[
         getInstructionStyle(), 
         { 
+          fontSize: responsiveFontSizes.instructions,
           opacity: instructionOpacity,
           transform: showCountdown && countdownSeconds <= 3 && countdownSeconds > 0 
             ? [{ scale: countdownScale }] 
@@ -442,7 +511,7 @@ export default function Session() {
       </Animated.Text>
       
       {sessionStarted && (
-        <Text style={styles.counter}>
+        <Text style={[styles.counter, { fontSize: responsiveFontSizes.counter }]}>
           Breath {currentBreath + 1} of {totalBreaths}
         </Text>
       )}
@@ -460,48 +529,53 @@ export default function Session() {
       )}
 
       {sessionStarted && (
-        <Text style={styles.timer}>
+        <Text style={[styles.timer, { fontSize: responsiveFontSizes.timer }]}>
           Time Remaining: {formatTime(remainingTimeMs)}
         </Text>
       )}
 
       <View style={styles.breathingContainer}>
-        {!showCountdown && (
+        {/* Show wave during countdown (ready state) and during session */}
+        {(showCountdown || !showCountdown) && (
           <>
             {/* Sound Wave Animation - First */}
-            <SoundWave
-              amplitude={waveAmplitude}
-              color={getWaveColor()}
-              phase={currentPhase}
-              phaseProgress={currentPhaseProgress}
-              width={280}
-              height={120}
-            />
+            <View style={styles.waveContainer}>
+              <SoundWave
+                amplitude={waveAmplitude}
+                color={getWaveColor()}
+                phase={currentPhase}
+                phaseProgress={currentPhaseProgress}
+                width={responsiveWaveWidth}
+                height={responsiveWaveHeight}
+              />
+            </View>
             
-            {/* Breathing Circle - Second - Now 4x larger */}
-            <BreathingCircle
-              phase={currentPhase}
-              phaseProgress={currentPhaseProgress}
-              color={getWaveColor()}
-              size={640}
-            />
+            {/* Breathing Circle - Second - Now responsive */}
+            {!showCountdown && (
+              <View style={styles.circleContainer}>
+                <BreathingCircle
+                  phase={currentPhase}
+                  phaseProgress={currentPhaseProgress}
+                  color={getWaveColor()}
+                  size={responsiveCircleSize}
+                />
+                
+                {/* Phase countdown overlay centered in circle */}
+                {sessionStarted && currentPhase !== 'complete' && (
+                  <View style={styles.phaseCountdownOverlay}>
+                    <Text style={[styles.phaseLabel, { fontSize: responsiveFontSizes.phaseLabel }]}>
+                      {getPhaseDisplayName()}
+                    </Text>
+                    <Text style={[styles.phaseCountdown, { fontSize: responsiveFontSizes.phaseCountdown }]}>
+                      {currentPhaseTimeRemaining}s
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         )}
-        
-        {/* Pause Indicator */}
-        {(currentPhase === 'pause1' || currentPhase === 'pause2') && (
-          <View style={styles.pauseIndicator}>
-            <Text style={styles.pauseText}>HOLD</Text>
-          </View>
-        )}
       </View>
-
-      {/* Breath Countdown Counter - Replace progress bar */}
-      {sessionStarted && (
-        <Text style={styles.breathCounter}>
-          {totalBreaths - currentBreath} breaths remaining
-        </Text>
-      )}
 
       {/* Completion Celebration */}
       {currentPhase === 'complete' && (
@@ -520,17 +594,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0a0a',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: '5%', // Responsive horizontal padding
   },
   instructions: {
-    fontSize: 32,
     fontWeight: '300',
     letterSpacing: 4,
     textTransform: 'uppercase',
-    marginBottom: 20,
+    marginBottom: '3%',
     textAlign: 'center',
     color: '#fff',
-    height: 50,
+    minHeight: 50,
   },
   breathing: {
     color: '#00ffcc',
@@ -553,24 +626,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   counter: {
-    fontSize: 16,
     opacity: 0.7,
-    marginBottom: 10,
+    marginBottom: '2%',
     color: '#fff',
     textAlign: 'center',
   },
   readyInfo: {
-    fontSize: 16,
     opacity: 0.7,
-    marginBottom: 10,
+    marginBottom: '2%',
     color: '#4ecdc4',
     textAlign: 'center',
     letterSpacing: 1,
   },
   timer: {
-    fontSize: 14,
     opacity: 0.6,
-    marginBottom: 30,
+    marginBottom: '5%',
     color: '#fff',
     textAlign: 'center',
     fontWeight: '500',
@@ -583,30 +653,52 @@ const styles = StyleSheet.create({
     marginTop: 40,
     letterSpacing: 1,
   },
+  phaseCountdownContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  phaseLabel: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '500',
+    letterSpacing: 1,
+    opacity: 0.9,
+    marginBottom: '2%',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+  },
+  phaseCountdown: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontWeight: '700',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+  },
   breathingContainer: {
     position: 'relative',
-    width: 300,
-    height: 280,
+    width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginVertical: 40,
     paddingVertical: 20,
   },
-  pauseIndicator: {
-    position: 'absolute',
-    bottom: 10,
-    backgroundColor: 'rgba(255, 204, 0, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 204, 0, 0.3)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+  waveContainer: {
+    marginBottom: '8%', // Responsive spacing between wave and circle
+    alignItems: 'center',
   },
-  pauseText: {
-    color: '#ffcc00',
-    fontSize: 14,
-    letterSpacing: 2,
-    fontWeight: '600',
+  circleContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phaseCountdownOverlay: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   completionCelebration: {
     position: 'absolute',

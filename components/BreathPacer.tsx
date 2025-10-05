@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Dimensions, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 // # BreathPacer component lets user set breathing parameters
 // # and start a session. It doesn't do any animation or timing itself;
@@ -8,6 +8,24 @@ import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput
 
 
 export default function BreathPacer() {
+  // Get screen dimensions for responsive design
+  const { width: screenWidth } = Dimensions.get('window');
+  const isTablet = screenWidth >= 768;
+  const isSmallPhone = screenWidth < 375;
+  
+  // Responsive sizing
+  const responsiveSizes = {
+    title: isTablet ? 42 : isSmallPhone ? 32 : 36,
+    subtitle: isTablet ? 24 : isSmallPhone ? 18 : 20,
+    inputPill: isTablet ? 72 : isSmallPhone ? 56 : 64,
+    inputText: isTablet ? 48 : isSmallPhone ? 36 : 40,
+    smallInput: isTablet ? 26 : isSmallPhone ? 20 : 22,
+    timerText: isTablet ? 26 : isSmallPhone ? 20 : 22,
+    startBtn: isTablet ? 80 : isSmallPhone ? 64 : 72,
+    startText: isTablet ? 38 : isSmallPhone ? 30 : 34,
+    padding: isTablet ? 32 : isSmallPhone ? 16 : 24,
+  };
+
   const [bpm, setBpm] = useState<string>("6");
   const [inhale, setInhale] = useState<string>("0");
   const [pause1, setPause1] = useState<string>("0");
@@ -102,30 +120,50 @@ export default function BreathPacer() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingHorizontal: responsiveSizes.padding }]}>
         <View style={styles.logoBox}>
           <Text style={styles.logoLeaf}>🌱</Text>
         </View>
-        <Text style={styles.title}>Bhakti Breath Pacer</Text>
-        <Text style={styles.subtitle}>How many breaths per minute{"\n"}do you want?</Text>
-        <View style={[styles.inputPill, usingLengths && styles.inputPillDisabled]}>
+        <Text style={[styles.title, { fontSize: responsiveSizes.title }]}>Bhakti Breath Pacer</Text>
+        <Text style={[styles.subtitle, { fontSize: responsiveSizes.subtitle }]}>How many breaths per minute{"\n"}do you want?</Text>
+        <View style={[styles.inputPill, { height: responsiveSizes.inputPill }, usingLengths && styles.inputPillDisabled]}>
           <TextInput
             value={bpm}
             onChangeText={changeNumber(setBpm)}
             keyboardType="numeric"
-            style={[styles.inputText, usingLengths && styles.disabledText]}
+            style={[styles.inputText, { fontSize: responsiveSizes.inputText }, usingLengths && styles.disabledText]}
             editable={!usingLengths}
             placeholder="6"
             placeholderTextColor={COLORS.bgDark}
           />
         </View>
         <Text style={styles.or}>OR</Text>
-        <Text style={styles.subtitle}>Enter length of:</Text>
+        <Text style={[styles.subtitle, { fontSize: responsiveSizes.subtitle }]}>Enter length of:</Text>
         <View style={styles.rows}>
-          <FieldRow label="Inhale" value={inhale} onChangeText={changeNumber(setInhale)} />
-          <FieldRow label="Pause" value={pause1} onChangeText={changeNumber(setPause1)} />
-          <FieldRow label="Exhale" value={exhale} onChangeText={changeNumber(setExhale)} />
-          <FieldRow label="Pause" value={pause2} onChangeText={changeNumber(setPause2)} />
+          <FieldRow 
+            label="Inhale" 
+            value={inhale} 
+            onChangeText={changeNumber(setInhale)} 
+            responsiveSize={responsiveSizes.smallInput}
+          />
+          <FieldRow 
+            label="Pause" 
+            value={pause1} 
+            onChangeText={changeNumber(setPause1)} 
+            responsiveSize={responsiveSizes.smallInput}
+          />
+          <FieldRow 
+            label="Exhale" 
+            value={exhale} 
+            onChangeText={changeNumber(setExhale)} 
+            responsiveSize={responsiveSizes.smallInput}
+          />
+          <FieldRow 
+            label="Pause" 
+            value={pause2} 
+            onChangeText={changeNumber(setPause2)} 
+            responsiveSize={responsiveSizes.smallInput}
+          />
         </View>
         <View style={styles.hairline} />
         <View style={styles.timerRow}>
@@ -135,11 +173,11 @@ export default function BreathPacer() {
               value={timerMin}
               onChangeText={changeNumber(setTimerMin)}
               keyboardType="numeric"
-              style={styles.timerText}
+              style={[styles.timerText, { fontSize: responsiveSizes.timerText }]}
               placeholder="5"
               placeholderTextColor="#6B6B6B"
             />
-            <Text style={styles.minutesLabel}>minutes</Text>
+            <Text style={[styles.minutesLabel, { fontSize: responsiveSizes.timerText }]}>minutes</Text>
           </View>
         </View>
         <View style={styles.hairline} />
@@ -184,8 +222,15 @@ export default function BreathPacer() {
             </Pressable>
           </ScrollView>
         </View>
-        <Pressable style={({ pressed }) => [styles.startBtn, pressed && { opacity: 0.9 }]} onPress={handleStart}>
-          <Text style={styles.startText}>Start</Text>
+        <Pressable 
+          style={({ pressed }) => [
+            styles.startBtn, 
+            { height: responsiveSizes.startBtn }, 
+            pressed && { opacity: 0.9 }
+          ]} 
+          onPress={handleStart}
+        >
+          <Text style={[styles.startText, { fontSize: responsiveSizes.startText }]}>Start</Text>
         </Pressable>
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -193,7 +238,17 @@ export default function BreathPacer() {
   );
 }
 
-function FieldRow({ label, value, onChangeText }: { label: string; value: string; onChangeText: (t: string) => void }) {
+function FieldRow({ 
+  label, 
+  value, 
+  onChangeText, 
+  responsiveSize 
+}: { 
+  label: string; 
+  value: string; 
+  onChangeText: (t: string) => void;
+  responsiveSize: number;
+}) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -202,7 +257,7 @@ function FieldRow({ label, value, onChangeText }: { label: string; value: string
           value={value}
           onChangeText={onChangeText}
           keyboardType="numeric"
-          style={styles.smallInput}
+          style={[styles.smallInput, { fontSize: responsiveSize }]}
           placeholder="0 sec"
           placeholderTextColor={COLORS.bgDark}
         />
@@ -221,29 +276,29 @@ const COLORS = {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
-  container: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40, alignItems: "center" },
+  container: { paddingTop: 24, paddingBottom: 40, alignItems: "center" },
   logoBox: { width: 82, height: 82, borderRadius: 16, borderWidth: 3, borderColor: COLORS.cream, alignItems: "center", justifyContent: "center", marginTop: 8 },
   logoLeaf: { fontSize: 36, color: COLORS.cream },
-  title: { fontSize: 36, color: COLORS.creamText, fontWeight: "700", marginTop: 18, textAlign: "center" },
-  subtitle: { fontSize: 20, color: COLORS.creamText, textAlign: "center", marginTop: 22, lineHeight: 28 },
-  inputPill: { marginTop: 16, height: 64, minWidth: 260, backgroundColor: COLORS.cream, borderRadius: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
+  title: { color: COLORS.creamText, fontWeight: "700", marginTop: 18, textAlign: "center" },
+  subtitle: { color: COLORS.creamText, textAlign: "center", marginTop: 22, lineHeight: 28 },
+  inputPill: { marginTop: 16, minWidth: '70%', backgroundColor: COLORS.cream, borderRadius: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
   inputPillDisabled: { opacity: 0.45 },
-  inputText: { fontSize: 40, fontWeight: "700", color: "#1A1A1A", textAlign: "center" },
+  inputText: { fontWeight: "700", color: "#1A1A1A", textAlign: "center" },
   disabledText: { color: "#6B6B6B" },
   or: { color: COLORS.creamText, fontSize: 22, fontWeight: "800", marginTop: 18 },
   rows: { width: "100%", marginTop: 8 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
   rowLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "600" },
-  smallPill: { backgroundColor: COLORS.cream, borderRadius: 12, paddingHorizontal: 18, height: 56, alignItems: "center", justifyContent: "center", minWidth: 150 },
-  smallInput: { fontSize: 22, fontWeight: "700", color: "#1A1A1A", minWidth: 90, textAlign: "center" },
+  smallPill: { backgroundColor: COLORS.cream, borderRadius: 12, paddingHorizontal: 18, height: 56, alignItems: "center", justifyContent: "center", minWidth: '40%' },
+  smallInput: { fontWeight: "700", color: "#1A1A1A", textAlign: "center", minWidth: 90 },
   hairline: { width: "96%", height: 2, backgroundColor: COLORS.cream, opacity: 0.5, alignSelf: "center", marginTop: 18 },
   timerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginTop: 22 },
   timerLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "700" },
   timerPill: { backgroundColor: COLORS.cream, borderRadius: 12, paddingHorizontal: 18, height: 56, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  timerText: { fontSize: 22, fontWeight: "700", color: "#1A1A1A", minWidth: 40, textAlign: "center" },
-  minutesLabel: { fontSize: 22, fontWeight: "700", color: "#1A1A1A" },
-  startBtn: { marginTop: 26, backgroundColor: COLORS.red, borderRadius: 24, height: 72, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
-  startText: { color: "#fff", fontSize: 34, fontWeight: "800" },
+  timerText: { fontWeight: "700", color: "#1A1A1A", minWidth: 40, textAlign: "center" },
+  minutesLabel: { fontWeight: "700", color: "#1A1A1A" },
+  startBtn: { marginTop: 26, backgroundColor: COLORS.red, borderRadius: 24, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
+  startText: { color: "#fff", fontWeight: "800" },
   soundSection: { width: "100%", marginTop: 22 },
 soundLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "700", marginBottom: 12 },
 soundScroll: { flexDirection: "row" },
