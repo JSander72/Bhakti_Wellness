@@ -50,7 +50,6 @@ export default function Session() {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [remainingTimeMs, setRemainingTimeMs] = useState(totalSessionMs);
   const [currentPhaseProgress, setCurrentPhaseProgress] = useState(0);
-  const [lastBreathingPhase, setLastBreathingPhase] = useState<'inhale' | 'exhale'>('inhale');
   const [countdownSeconds, setCountdownSeconds] = useState(10);
   const [showCountdown, setShowCountdown] = useState(true);
   
@@ -170,25 +169,14 @@ export default function Session() {
   }, [cycleDurationMs, inhaleMs, pause1Ms, exhaleMs, pause2Ms]);
 
   const animateWaveAmplitude = useCallback((phase: string, progress: number) => {
-    let targetAmplitude = 0.3;
-
-    switch (phase) {
-      case 'inhale':
-        targetAmplitude = 0.3 + (progress * 0.6); // Amplitude from 0.3 to 0.9
-        break;
-      case 'pause1':
-        targetAmplitude = 0.1; // Very flat for holds - just stop movement
-        break;
-      case 'exhale':
-        targetAmplitude = 0.9 - (progress * 0.5); // Amplitude from 0.9 to 0.4
-        break;
-      case 'pause2':
-        targetAmplitude = 0.1; // Very flat for holds - just stop movement
-        break;
-      default:
-        targetAmplitude = 0.3;
+    // Keep consistent amplitude throughout - only change for holds
+    if (phase === 'pause1' || phase === 'pause2') {
+      // Don't change amplitude during holds - keep current amplitude
+      return;
     }
-
+    
+    // Use higher amplitude for more dramatic wave effect
+    const targetAmplitude = 0.85; // Increased from 0.6 for more dramatic waves
     setWaveAmplitude(targetAmplitude);
   }, []);
 
@@ -256,11 +244,6 @@ export default function Session() {
     if (phaseInfo.name !== currentPhase) {
       setCurrentPhase(phaseInfo.name);
       phaseStartTime.current = Date.now();
-      
-      // Track the last breathing phase (inhale or exhale) to maintain color during holds
-      if (phaseInfo.name === 'inhale' || phaseInfo.name === 'exhale') {
-        setLastBreathingPhase(phaseInfo.name);
-      }
       
       // Animate instruction text transition
       Animated.sequence([
@@ -424,33 +407,17 @@ export default function Session() {
     }
 
     switch (currentPhase) {
-      case 'inhale':
-        return [styles.instructions, styles.inhaling];
-      case 'pause1':
-      case 'pause2':
-        return [styles.instructions, styles.holding];
-      case 'exhale':
-        return [styles.instructions, styles.exhaling];
       case 'complete':
         return [styles.instructions, styles.complete];
       default:
-        return styles.instructions;
+        // Use consistent style for all breathing phases
+        return [styles.instructions, styles.breathing];
     }
   };
 
   const getWaveColor = () => {
-    switch (currentPhase) {
-      case 'inhale':
-        return '#00ffcc';
-      case 'exhale':
-        return '#ff6b9d';
-      case 'pause1':
-      case 'pause2':
-        // Keep the color from the last breathing phase during holds
-        return lastBreathingPhase === 'inhale' ? '#00ffcc' : '#ff6b9d';
-      default:
-        return '#00ffcc';
-    }
+    // Use single consistent color throughout entire process
+    return '#00ffcc';
   };
 
   const formatTime = (ms: number) => {
@@ -511,12 +478,12 @@ export default function Session() {
               height={120}
             />
             
-            {/* Breathing Circle - Second */}
+            {/* Breathing Circle - Second - Now 4x larger */}
             <BreathingCircle
               phase={currentPhase}
               phaseProgress={currentPhaseProgress}
               color={getWaveColor()}
-              size={160}
+              size={640}
             />
           </>
         )}
@@ -529,22 +496,12 @@ export default function Session() {
         )}
       </View>
 
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              {
-                width: progressWidth.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%'],
-                }),
-              },
-            ]}
-          />
-        </View>
-      </View>
+      {/* Breath Countdown Counter - Replace progress bar */}
+      {sessionStarted && (
+        <Text style={styles.breathCounter}>
+          {totalBreaths - currentBreath} breaths remaining
+        </Text>
+      )}
 
       {/* Completion Celebration */}
       {currentPhase === 'complete' && (
@@ -575,14 +532,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     height: 50,
   },
-  inhaling: {
+  breathing: {
     color: '#00ffcc',
-  },
-  holding: {
-    color: '#ffcc00',
-  },
-  exhaling: {
-    color: '#ff6b9d',
   },
   complete: {
     color: '#4ecdc4',
@@ -624,6 +575,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  breathCounter: {
+    fontSize: 18,
+    color: '#00ffcc',
+    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 40,
+    letterSpacing: 1,
+  },
   breathingContainer: {
     position: 'relative',
     width: 300,
@@ -648,21 +607,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 2,
     fontWeight: '600',
-  },
-  progressContainer: {
-    marginTop: 40,
-    width: '80%',
-    maxWidth: 400,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#00ffcc',
   },
   completionCelebration: {
     position: 'absolute',

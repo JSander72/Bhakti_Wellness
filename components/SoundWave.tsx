@@ -25,29 +25,14 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   const [currentPath, setCurrentPath] = React.useState('');
   const [dotPosition, setDotPosition] = React.useState({ x: 0, y: height / 2 });
 
-  useEffect(() => {
-    // Animate opacity based on phase
-    let targetOpacity = 0.8;
-    switch (phase) {
-      case 'inhale':
-        targetOpacity = 1;
-        break;
-      case 'exhale':
-        targetOpacity = 0.6;
-        break;
-      case 'pause1':
-      case 'pause2':
-        targetOpacity = 0.9;
-        break;
-      default:
-        targetOpacity = 0.8;
-    }
+  // Single consistent wave properties - no changes between phases
+  const WAVE_FREQUENCY = 2;
+  const WAVE_DAMPENING = 1.8; // Increased from 1.2 for more dramatic waves
+  const ANIMATION_SPEED = 0.008;
 
-    Animated.timing(opacityAnim, {
-      toValue: targetOpacity,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+  useEffect(() => {
+    // Don't animate opacity changes - keep it constant for smoother transitions
+    // This prevents visual changes when transitioning between phases
   }, [phase, opacityAnim]);
 
   const generateWavePath = React.useCallback((time: number, waveAmplitude: number, verticalShift: number = 0, waveOffset: number = 0) => {
@@ -55,28 +40,9 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     const centerY = height / 2;
     let path = '';
     
-    // Get wave properties based on phase - slower, more meditative curves
-    let frequency = 1.5; // Base frequency for calmer waves
-    let dampening = 1;
-    
-    switch (phase) {
-      case 'inhale':
-        frequency = 2; // Moderate curves for inhale
-        dampening = 1.2; // Slightly more pronounced
-        break;
-      case 'exhale':
-        frequency = 1.5; // Slower, gentler curves for exhale
-        dampening = 1;
-        break;
-      case 'pause1':
-      case 'pause2':
-        frequency = 0; // Completely flat during holds
-        dampening = 0;
-        break;
-      default:
-        frequency = 1.5;
-        dampening = 0.8;
-    }
+    // Use consistent wave properties throughout - no changes between phases
+    const frequency = WAVE_FREQUENCY;
+    const dampening = WAVE_DAMPENING;
     
     for (let i = 0; i <= points; i++) {
       const x = (i / points) * width;
@@ -92,48 +58,25 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     }
     
     return path;
-  }, [width, height, phase]);
+  }, [width, height]);
 
   useEffect(() => {
     const animate = () => {
-      // Much slower animation speed for calm, meditative pace
-      let animationSpeed = 0.005; // Reduced from 0.02 for mississippi pace
+      // Use consistent animation speed, only stop during holds
+      let animationSpeed = ANIMATION_SPEED;
       
-      switch (phase) {
-        case 'inhale':
-          animationSpeed = 0.008; // Slightly faster for inhale
-          break;
-        case 'exhale':
-          animationSpeed = 0.006; // Medium pace for exhale
-          break;
-        case 'pause1':
-        case 'pause2':
-          animationSpeed = 0; // Completely stop wave movement during holds
-          break;
-        default:
-          animationSpeed = 0.005;
+      if (phase === 'pause1' || phase === 'pause2') {
+        animationSpeed = 0; // Stop wave movement during holds
       }
       
-      animationTime.current += animationSpeed;
-      
-      // Calculate vertical shift based on phase
-      let verticalShift = 0;
-      const baseAmplitude = amplitude * (height * 0.2);
-      
-      switch (phase) {
-        case 'inhale':
-          verticalShift = -baseAmplitude * 0.6; // Move up
-          break;
-        case 'exhale':
-          verticalShift = baseAmplitude * 0.6; // Move down
-          break;
-        case 'pause1':
-        case 'pause2':
-          verticalShift = 0; // Stay centered and flat
-          break;
-        default:
-          verticalShift = 0;
+      // Only update animation time if not in a hold phase
+      if (phase !== 'pause1' && phase !== 'pause2') {
+        animationTime.current += animationSpeed;
       }
+      
+      // No vertical shift - keep wave centered throughout entire process
+      const verticalShift = 0;
+      const baseAmplitude = amplitude * (height * 0.35); // Increased from 0.2 to 0.35 for more dramatic waves
       
       // Wave moves right to left (negative offset creates right-to-left movement)
       const waveOffset = -animationTime.current;
@@ -142,34 +85,11 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
       setCurrentPath(newPath);
       
       // Fixed dot position - always center of screen horizontally
-      const dotX = width / 2; // Fixed center position
+      const dotX = width / 2;
       
       // Calculate dot Y position based on the wave at center X position
-      let frequency = 1.5; // Reduced frequency for slower, more pronounced curves
-      let dampening = 1;
-      
-      switch (phase) {
-        case 'inhale':
-          frequency = 2; // Moderate frequency for inhale
-          dampening = 1.2; // Slightly more pronounced
-          break;
-        case 'exhale':
-          frequency = 1.5; // Slower curves for exhale
-          dampening = 1;
-          break;
-        case 'pause1':
-        case 'pause2':
-          frequency = 0; // No wave movement during holds
-          dampening = 0;
-          break;
-        default:
-          frequency = 2;
-          dampening = 0.5;
-      }
-      
       const centerY = height / 2;
-      // Calculate wave Y at center position with wave offset
-      const waveY = Math.sin((0.5) * Math.PI * frequency + waveOffset) * baseAmplitude * dampening;
+      const waveY = Math.sin((0.5) * Math.PI * WAVE_FREQUENCY + waveOffset) * baseAmplitude * WAVE_DAMPENING;
       const dotY = centerY + waveY + verticalShift;
       
       setDotPosition({ x: dotX, y: dotY });
@@ -202,7 +122,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
           
           {/* Secondary wave for depth */}
           <Path
-            d={generateWavePath(0, amplitude * (height * 0.15), 0, -animationTime.current + 1)}
+            d={generateWavePath(0, amplitude * (height * 0.25), 0, -animationTime.current + 1)} // Increased from 0.15 to 0.25
             stroke={color}
             strokeWidth={2}
             fill="none"
