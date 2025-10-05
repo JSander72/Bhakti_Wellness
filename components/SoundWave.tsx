@@ -29,7 +29,14 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   // Single consistent wave properties - no changes between phases
   const WAVE_FREQUENCY = 2;
   const WAVE_DAMPENING = 1.8; // Increased from 1.2 for more dramatic waves
-  const ANIMATION_SPEED = 0.008;
+  const ANIMATION_SPEED = 0.006; // Balanced speed for breathing rhythm
+
+  // Phase alignment helpers (ensure valley/peak happen at the center x)
+  // For a sine wave: peak at angle = π/2, valley at angle = 3π/2
+  const KX_CENTER = 0.5 * Math.PI * WAVE_FREQUENCY; // phase contribution at x = width/2
+  const PEAK_OFFSET = (Math.PI / 2) - KX_CENTER;     // offset so center shows a peak
+  const VALLEY_OFFSET = (3 * Math.PI / 2) - KX_CENTER; // offset so center shows a valley
+  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
   const generateWavePath = React.useCallback((time: number, waveAmplitude: number, verticalShift: number = 0, waveOffset: number = 0) => {
     // Scale the number of points based on width for better quality on larger screens
@@ -66,7 +73,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   useEffect(() => {
     const centerY = height / 2;
     const baseAmplitude = amplitude * (height * 0.35);
-    const initialOffset = Math.PI; // Start in valley position
+    const initialOffset = VALLEY_OFFSET; // Start with valley at center
     
     // Initialize path and dot position
     const initialPath = generateWavePath(0, baseAmplitude, 0, initialOffset);
@@ -74,45 +81,31 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     setCurrentWaveOffset(initialOffset);
     
     const dotX = width / 2;
-    const waveY = Math.sin((0.5) * Math.PI * WAVE_FREQUENCY + initialOffset) * baseAmplitude * WAVE_DAMPENING;
+    const waveY = Math.sin(KX_CENTER + initialOffset) * baseAmplitude * WAVE_DAMPENING;
     const dotY = centerY + waveY;
     setDotPosition({ x: dotX, y: dotY });
-  }, [width, height, amplitude, generateWavePath]);
+  }, [width, height, amplitude, generateWavePath, VALLEY_OFFSET, KX_CENTER]);
 
   useEffect(() => {
     const animate = () => {
       const centerY = height / 2;
       const baseAmplitude = amplitude * (height * 0.35);
       
-      // Continue right-to-left wave movement during breathing phases, stop during holds
-      if (phase !== 'pause1' && phase !== 'pause2') {
+      // Two-speed system: move during inhale/exhale, freeze during holds
+      if (phase === 'inhale' || phase === 'exhale') {
+        // Active breathing phases - wave moves
         animationTime.current += ANIMATION_SPEED;
       }
-      
-      // Calculate timing-based offset for peak/valley alignment
-      let timingOffset = 0;
-      
-      if (phase === 'inhale') {
-        // During inhale: move from valley to peak
-        // Start with valley at center (offset = π), move to peak at center (offset = 0)
-        timingOffset = Math.PI * (1 - phaseProgress);
-      } else if (phase === 'pause1') {
-        // Hold with peak at center
-        timingOffset = 0;
-      } else if (phase === 'exhale') {
-        // During exhale: move from peak to valley
-        // Start with peak at center (offset = 0), move to valley at center (offset = π)
-        timingOffset = Math.PI * phaseProgress;
-      } else if (phase === 'pause2') {
-        // Hold with valley at center
-        timingOffset = Math.PI;
-      } else {
-        // For 'ready' and 'complete' phases, start in valley position
-        timingOffset = Math.PI;
+      // During pause1 and pause2: animationTime stays the same (freeze)
+      // During ready: wave moves gently
+      if (phase === 'ready') {
+        animationTime.current += ANIMATION_SPEED * 0.5; // Slower during ready
       }
       
-      // Combine right-to-left movement with timing-based positioning
-      const totalWaveOffset = -animationTime.current + timingOffset;
+      // Keep path drift independent of breathing to avoid direction flips
+      // Always start with center valley alignment and drift left over time
+      const PATH_BASE_OFFSET = VALLEY_OFFSET;
+      const totalWaveOffset = animationTime.current + PATH_BASE_OFFSET;
       
       // Store the wave offset for use in render
       setCurrentWaveOffset(totalWaveOffset);
@@ -123,8 +116,21 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
       // Fixed dot position - always center of screen horizontally
       const dotX = width / 2;
       
-      // Calculate dot Y position to follow the wave at center position
-      const waveY = Math.sin((0.5) * Math.PI * WAVE_FREQUENCY + totalWaveOffset) * baseAmplitude * WAVE_DAMPENING;
+      // Calculate dot Y position purely from breathing phase (center alignment)
+      let centerPhaseAngle = KX_CENTER + VALLEY_OFFSET; // default valley
+      const clamp = (t: number) => Math.min(1, Math.max(0, t));
+      if (phase === 'inhale') {
+        centerPhaseAngle = KX_CENTER + lerp(VALLEY_OFFSET, PEAK_OFFSET, clamp(phaseProgress));
+      } else if (phase === 'pause1') {
+        centerPhaseAngle = KX_CENTER + PEAK_OFFSET;
+      } else if (phase === 'exhale') {
+        centerPhaseAngle = KX_CENTER + lerp(PEAK_OFFSET, VALLEY_OFFSET, clamp(phaseProgress));
+      } else if (phase === 'pause2') {
+        centerPhaseAngle = KX_CENTER + VALLEY_OFFSET;
+      } else if (phase === 'ready') {
+        centerPhaseAngle = KX_CENTER + VALLEY_OFFSET;
+      }
+      const waveY = Math.sin(centerPhaseAngle) * baseAmplitude * WAVE_DAMPENING;
       const dotY = centerY + waveY;
       
       setDotPosition({ x: dotX, y: dotY });
@@ -139,7 +145,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [amplitude, generateWavePath, phase, phaseProgress, width, height]);
+  }, [amplitude, generateWavePath, phase, phaseProgress, width, height, PEAK_OFFSET, VALLEY_OFFSET, KX_CENTER]);
 
   return (
     <View style={[styles.container, { width, height }]}>
