@@ -24,7 +24,6 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   const animationTime = useRef(0);
   const [currentPath, setCurrentPath] = React.useState('');
   const [dotPosition, setDotPosition] = React.useState({ x: width / 2, y: height / 2 });
-  const [currentWaveOffset, setCurrentWaveOffset] = React.useState(Math.PI); // Start in valley
 
   // Single consistent wave properties - no changes between phases
   const WAVE_FREQUENCY = 2;
@@ -38,7 +37,9 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   const VALLEY_OFFSET = (3 * Math.PI / 2) - KX_CENTER; // offset so center shows a valley
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-  const generateWavePath = React.useCallback((time: number, waveAmplitude: number, verticalShift: number = 0, waveOffset: number = 0) => {
+  // Generate a center-anchored drifting wave: the phase at center stays aligned with baseOffset,
+  // while the sides drift with `driftPhase` to create leftward flow without desynchronizing the center.
+  const generateWavePath = React.useCallback((driftPhase: number, waveAmplitude: number, verticalShift: number = 0, baseOffset: number = 0) => {
     // Scale the number of points based on width for better quality on larger screens
     const points = Math.max(60, Math.min(120, Math.floor(width / 4)));
     const centerY = height / 2;
@@ -50,8 +51,10 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     
     for (let i = 0; i <= points; i++) {
       const x = (i / points) * width;
-      // Add wave offset to create right-to-left movement
-      const waveY = Math.sin((x / width) * Math.PI * frequency + time + waveOffset) * waveAmplitude * dampening;
+      // Center-anchored phase gradient: keeps center aligned, drifts edges
+      const xNorm = (x / width) - 0.5; // -0.5..0.5 (0 at center)
+      const phase = (x / width) * Math.PI * frequency + baseOffset + driftPhase * xNorm * 2; // zero drift at center
+      const waveY = Math.sin(phase) * waveAmplitude * dampening;
       const y = centerY + waveY + verticalShift;
       
       if (i === 0) {
@@ -73,15 +76,14 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   useEffect(() => {
     const centerY = height / 2;
     const baseAmplitude = amplitude * (height * 0.35);
-    const initialOffset = VALLEY_OFFSET; // Start with valley at center
+    const initialBaseOffset = VALLEY_OFFSET; // Start with valley at center
     
     // Initialize path and dot position
-    const initialPath = generateWavePath(0, baseAmplitude, 0, initialOffset);
+    const initialPath = generateWavePath(0, baseAmplitude, 0, initialBaseOffset);
     setCurrentPath(initialPath);
-    setCurrentWaveOffset(initialOffset);
     
     const dotX = width / 2;
-    const waveY = Math.sin(KX_CENTER + initialOffset) * baseAmplitude * WAVE_DAMPENING;
+  const waveY = Math.sin(KX_CENTER + initialBaseOffset) * baseAmplitude * WAVE_DAMPENING;
     const dotY = centerY + waveY;
     setDotPosition({ x: dotX, y: dotY });
   }, [width, height, amplitude, generateWavePath, VALLEY_OFFSET, KX_CENTER]);
@@ -91,32 +93,12 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
       const centerY = height / 2;
       const baseAmplitude = amplitude * (height * 0.35);
       
-      // Two-speed system: move during inhale/exhale, freeze during holds
-      if (phase === 'inhale' || phase === 'exhale') {
-        // Active breathing phases - wave moves
-        animationTime.current += ANIMATION_SPEED;
-      }
-      // During pause1 and pause2: animationTime stays the same (freeze)
-      // During ready: wave moves gently
-      if (phase === 'ready') {
-        animationTime.current += ANIMATION_SPEED * 0.5; // Slower during ready
-      }
-      
-      // Keep path drift independent of breathing to avoid direction flips
-      // Always start with center valley alignment and drift left over time
-      const PATH_BASE_OFFSET = VALLEY_OFFSET;
-      const totalWaveOffset = animationTime.current + PATH_BASE_OFFSET;
-      
-      // Store the wave offset for use in render
-      setCurrentWaveOffset(totalWaveOffset);
-      
-      const newPath = generateWavePath(0, baseAmplitude, 0, totalWaveOffset);
-      setCurrentPath(newPath);
-      
-      // Fixed dot position - always center of screen horizontally
-      const dotX = width / 2;
+      // Two-speed system for drift (unidirectional): move on inhale/exhale, freeze on holds, gentle on ready
+      if (phase === 'inhale' || phase === 'exhale') animationTime.current += ANIMATION_SPEED;
+      else if (phase === 'ready') animationTime.current += ANIMATION_SPEED * 0.5;
       
       // Calculate dot Y position purely from breathing phase (center alignment)
+      // Also use this to lock the path's center to the breathing phase while adding drift.
       let centerPhaseAngle = KX_CENTER + VALLEY_OFFSET; // default valley
       const clamp = (t: number) => Math.min(1, Math.max(0, t));
       if (phase === 'inhale') {
@@ -130,8 +112,17 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
       } else if (phase === 'ready') {
         centerPhaseAngle = KX_CENTER + VALLEY_OFFSET;
       }
-      const waveY = Math.sin(centerPhaseAngle) * baseAmplitude * WAVE_DAMPENING;
-      const dotY = centerY + waveY;
+
+  // Build path with center-anchored baseOffset and driftPhase
+  const baseOffset = centerPhaseAngle - KX_CENTER;
+  const driftPhase = animationTime.current;
+  const newPath = generateWavePath(driftPhase, baseAmplitude, 0, baseOffset);
+      setCurrentPath(newPath);
+
+  // Fixed center dot position - always center of screen horizontally
+      const dotX = width / 2;
+  const waveYCenter = Math.sin(centerPhaseAngle) * baseAmplitude * WAVE_DAMPENING;
+  const dotY = centerY + waveYCenter;
       
       setDotPosition({ x: dotX, y: dotY });
       
@@ -151,7 +142,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     <View style={[styles.container, { width, height }]}>
       <Animated.View style={[styles.waveContainer, { opacity: opacityAnim }]}>
         <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
-          {/* Main wave */}
+          {/* Rebuilt wave aligned to the center dot with unidirectional drift */}
           <Path
             d={currentPath}
             stroke={color}
@@ -159,17 +150,6 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
-          />
-          
-          {/* Secondary wave for depth */}
-          <Path
-            d={generateWavePath(0, amplitude * (height * 0.25), 0, currentWaveOffset + 1)} // Use same sync offset but slightly shifted
-            stroke={color}
-            strokeWidth={2}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={0.5}
           />
           
           {/* Fixed center dot indicator */}
