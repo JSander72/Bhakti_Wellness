@@ -1,3 +1,5 @@
+import { BreathingCircle } from '@/components/BreathingCircle';
+import { SoundWave } from '@/components/SoundWave';
 import { ProductionSoundManager } from '@/utils/productionSoundManager';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,12 +22,24 @@ export default function Session() {
 
   const selectedSound = params.sound || "none";
   
-  const cycleDurationMs = Number(params.cycleDurationMs ?? 4000);
-  const totalBreaths = Number(params.totalBreaths ?? 5);
-  const inhaleMs = Number(params.inhaleMs ?? cycleDurationMs * 0.4);
-  const pause1Ms = Number(params.pause1Ms ?? 0);
-  const exhaleMs = Number(params.exhaleMs ?? cycleDurationMs * 0.6);
-  const pause2Ms = Number(params.pause2Ms ?? 0);
+  // Validate and parse timing parameters with proper defaults
+  const cycleDurationMs = Number(params.cycleDurationMs) || 4000;
+  const totalBreaths = Number(params.totalBreaths) || 5;
+  const inhaleMs = Number(params.inhaleMs) || Math.round(cycleDurationMs * 0.4);
+  const pause1Ms = Number(params.pause1Ms) || 0;
+  const exhaleMs = Number(params.exhaleMs) || Math.round(cycleDurationMs * 0.6);
+  const pause2Ms = Number(params.pause2Ms) || 0;
+
+  // Debug log the received parameters
+  console.log('Session Parameters:', {
+    cycleDurationMs,
+    totalBreaths,
+    inhaleMs,
+    pause1Ms,
+    exhaleMs,
+    pause2Ms,
+    selectedSound
+  });
 
   // Calculate total session duration
   const totalSessionMs = totalBreaths * cycleDurationMs;
@@ -35,14 +49,18 @@ export default function Session() {
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'inhale' | 'pause1' | 'exhale' | 'pause2' | 'complete'>('ready');
   const [sessionStarted, setSessionStarted] = useState(false);
   const [remainingTimeMs, setRemainingTimeMs] = useState(totalSessionMs);
+  const [currentPhaseProgress, setCurrentPhaseProgress] = useState(0);
+  const [lastBreathingPhase, setLastBreathingPhase] = useState<'inhale' | 'exhale'>('inhale');
+  const [countdownSeconds, setCountdownSeconds] = useState(10);
+  const [showCountdown, setShowCountdown] = useState(true);
   
   // Animated values
-  const breathingBallScale = useRef(new Animated.Value(1)).current;
-  const breathingBallOpacity = useRef(new Animated.Value(0.8)).current;
+  const [waveAmplitude, setWaveAmplitude] = useState(0.3);
   const progressWidth = useRef(new Animated.Value(0)).current;
   const instructionOpacity = useRef(new Animated.Value(1)).current;
   const phaseProgressWidth = useRef(new Animated.Value(0)).current;
   const completionScale = useRef(new Animated.Value(0)).current;
+  const countdownScale = useRef(new Animated.Value(1)).current;
   
   // Audio
   const soundManager = useRef<ProductionSoundManager | null>(null);
@@ -151,51 +169,28 @@ export default function Session() {
     return { name: 'inhale' as const, progress: 0, isNewCycle: false };
   }, [cycleDurationMs, inhaleMs, pause1Ms, exhaleMs, pause2Ms]);
 
-  const animateBreathingBall = useCallback((phase: string, progress: number) => {
-    let targetScale = 1;
-    let targetOpacity = 0.8;
-    let animationDuration = 200; // Default smooth animation
+  const animateWaveAmplitude = useCallback((phase: string, progress: number) => {
+    let targetAmplitude = 0.3;
 
     switch (phase) {
       case 'inhale':
-        targetScale = 1 + (progress * 0.8); // Scale from 1 to 1.8
-        targetOpacity = 0.6 + (progress * 0.4); // Opacity from 0.6 to 1
-        animationDuration = Math.min(300, inhaleMs / 10); // Smoother for longer inhales
+        targetAmplitude = 0.3 + (progress * 0.6); // Amplitude from 0.3 to 0.9
         break;
       case 'pause1':
-        targetScale = 1.8;
-        targetOpacity = 1;
-        animationDuration = 150;
+        targetAmplitude = 0.1; // Very flat for holds - just stop movement
         break;
       case 'exhale':
-        targetScale = 1.8 - (progress * 0.8); // Scale from 1.8 to 1
-        targetOpacity = 1 - (progress * 0.2); // Opacity from 1 to 0.8
-        animationDuration = Math.min(300, exhaleMs / 10); // Smoother for longer exhales
+        targetAmplitude = 0.9 - (progress * 0.5); // Amplitude from 0.9 to 0.4
         break;
       case 'pause2':
-        targetScale = 1;
-        targetOpacity = 0.8;
-        animationDuration = 150;
+        targetAmplitude = 0.1; // Very flat for holds - just stop movement
         break;
       default:
-        targetScale = 1;
-        targetOpacity = 0.8;
-        animationDuration = 200;
+        targetAmplitude = 0.3;
     }
 
-    Animated.parallel([
-      Animated.timing(breathingBallScale, {
-        toValue: targetScale,
-        duration: animationDuration,
-        useNativeDriver: true,
-      }),
-      Animated.timing(breathingBallOpacity, {
-        toValue: targetOpacity,
-        duration: animationDuration,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [breathingBallScale, breathingBallOpacity, inhaleMs, exhaleMs]);
+    setWaveAmplitude(targetAmplitude);
+  }, []);
 
   const updateSession = useCallback(() => {
     if (!sessionStartTime.current) return;
@@ -254,10 +249,18 @@ export default function Session() {
     // Get current phase info
     const phaseInfo = getPhaseInfo(elapsed);
     
+    // Update current phase progress
+    setCurrentPhaseProgress(phaseInfo.progress);
+    
     // Update phase if it changed
     if (phaseInfo.name !== currentPhase) {
       setCurrentPhase(phaseInfo.name);
       phaseStartTime.current = Date.now();
+      
+      // Track the last breathing phase (inhale or exhale) to maintain color during holds
+      if (phaseInfo.name === 'inhale' || phaseInfo.name === 'exhale') {
+        setLastBreathingPhase(phaseInfo.name);
+      }
       
       // Animate instruction text transition
       Animated.sequence([
@@ -281,8 +284,8 @@ export default function Session() {
       useNativeDriver: false,
     }).start();
 
-    // Animate breathing ball
-    animateBreathingBall(phaseInfo.name, phaseInfo.progress);
+    // Animate wave amplitude
+    animateWaveAmplitude(phaseInfo.name, phaseInfo.progress);
 
     // Continue animation
     animationRef.current = requestAnimationFrame(updateSession);
@@ -293,7 +296,7 @@ export default function Session() {
     totalBreaths, 
     totalSessionMs,
     getPhaseInfo, 
-    animateBreathingBall, 
+    animateWaveAmplitude, 
     progressWidth, 
     phaseProgressWidth,
     instructionOpacity,
@@ -302,21 +305,74 @@ export default function Session() {
   ]);
 
   const startSession = useCallback(() => {
+    // Validate parameters before starting
+    if (cycleDurationMs <= 0 || totalBreaths <= 0 || (inhaleMs + pause1Ms + exhaleMs + pause2Ms) <= 0) {
+      console.error('Invalid breathing parameters:', {
+        cycleDurationMs,
+        totalBreaths,
+        inhaleMs,
+        pause1Ms,
+        exhaleMs,
+        pause2Ms
+      });
+      Alert.alert('Error', 'Invalid breathing parameters. Please go back and set valid values.');
+      return;
+    }
+
+    console.log('Starting session with parameters:', {
+      cycleDurationMs,
+      totalBreaths,
+      inhaleMs,
+      pause1Ms,
+      exhaleMs,
+      pause2Ms
+    });
+
     setSessionStarted(true);
     setCurrentPhase('inhale');
     sessionStartTime.current = Date.now();
     phaseStartTime.current = Date.now();
     animationRef.current = requestAnimationFrame(updateSession);
-  }, [updateSession]);
+  }, [updateSession, cycleDurationMs, totalBreaths, inhaleMs, pause1Ms, exhaleMs, pause2Ms]);
 
-  // Start session after a delay
+  // Start session after countdown
   useEffect(() => {
-    const timer = setTimeout(() => {
-      startSession();
-    }, 2000);
+    if (!showCountdown) return;
+
+    const countdownInterval = setInterval(() => {
+      setCountdownSeconds((prev) => {
+        if (prev <= 1) {
+          // Countdown finished, start the session
+          clearInterval(countdownInterval);
+          setShowCountdown(false);
+          setTimeout(() => {
+            startSession();
+          }, 500); // Brief pause after "GO"
+          return 0;
+        }
+        
+        // Animate countdown numbers
+        if (prev <= 3) {
+          Animated.sequence([
+            Animated.timing(countdownScale, {
+              toValue: 1.3,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(countdownScale, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+        
+        return prev - 1;
+      });
+    }, 1000);
 
     return () => {
-      clearTimeout(timer);
+      clearInterval(countdownInterval);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
@@ -325,9 +381,19 @@ export default function Session() {
         soundManager.current.stop();
       }
     };
-  }, [startSession]);
+  }, [startSession, showCountdown, countdownScale]);
 
   const getInstructionText = () => {
+    if (showCountdown) {
+      if (countdownSeconds > 3) {
+        return 'Get Ready';
+      } else if (countdownSeconds > 0) {
+        return `Start in ${countdownSeconds}`;
+      } else {
+        return 'GO!';
+      }
+    }
+
     switch (currentPhase) {
       case 'ready':
         return 'Get Ready';
@@ -347,6 +413,16 @@ export default function Session() {
   };
 
   const getInstructionStyle = () => {
+    if (showCountdown) {
+      if (countdownSeconds > 3) {
+        return [styles.instructions, styles.getReady];
+      } else if (countdownSeconds > 0) {
+        return [styles.instructions, styles.countdown];
+      } else {
+        return [styles.instructions, styles.go];
+      }
+    }
+
     switch (currentPhase) {
       case 'inhale':
         return [styles.instructions, styles.inhaling];
@@ -362,7 +438,7 @@ export default function Session() {
     }
   };
 
-  const getBallColor = () => {
+  const getWaveColor = () => {
     switch (currentPhase) {
       case 'inhale':
         return '#00ffcc';
@@ -370,7 +446,8 @@ export default function Session() {
         return '#ff6b9d';
       case 'pause1':
       case 'pause2':
-        return '#ffcc00';
+        // Keep the color from the last breathing phase during holds
+        return lastBreathingPhase === 'inhale' ? '#00ffcc' : '#ff6b9d';
       default:
         return '#00ffcc';
     }
@@ -385,13 +462,33 @@ export default function Session() {
 
   return (
     <View style={styles.container}>
-      <Animated.Text style={[getInstructionStyle(), { opacity: instructionOpacity }]}>
+      <Animated.Text style={[
+        getInstructionStyle(), 
+        { 
+          opacity: instructionOpacity,
+          transform: showCountdown && countdownSeconds <= 3 && countdownSeconds > 0 
+            ? [{ scale: countdownScale }] 
+            : []
+        }
+      ]}>
         {getInstructionText()}
       </Animated.Text>
       
       {sessionStarted && (
         <Text style={styles.counter}>
           Breath {currentBreath + 1} of {totalBreaths}
+        </Text>
+      )}
+
+      {!sessionStarted && !showCountdown && currentPhase === 'ready' && (
+        <Text style={styles.readyInfo}>
+          {totalBreaths} breaths • {formatTime(totalSessionMs)} session
+        </Text>
+      )}
+
+      {showCountdown && countdownSeconds > 3 && (
+        <Text style={styles.readyInfo}>
+          {totalBreaths} breaths • {formatTime(totalSessionMs)} session
         </Text>
       )}
 
@@ -402,46 +499,32 @@ export default function Session() {
       )}
 
       <View style={styles.breathingContainer}>
-        {/* Breathing Ball */}
-        <Animated.View
-          style={[
-            styles.breathingBall,
-            {
-              backgroundColor: getBallColor(),
-              transform: [{ scale: breathingBallScale }],
-              opacity: breathingBallOpacity,
-            },
-          ]}
-        />
+        {!showCountdown && (
+          <>
+            {/* Sound Wave Animation - First */}
+            <SoundWave
+              amplitude={waveAmplitude}
+              color={getWaveColor()}
+              phase={currentPhase}
+              phaseProgress={currentPhaseProgress}
+              width={280}
+              height={120}
+            />
+            
+            {/* Breathing Circle - Second */}
+            <BreathingCircle
+              phase={currentPhase}
+              phaseProgress={currentPhaseProgress}
+              color={getWaveColor()}
+              size={160}
+            />
+          </>
+        )}
         
         {/* Pause Indicator */}
         {(currentPhase === 'pause1' || currentPhase === 'pause2') && (
           <View style={styles.pauseIndicator}>
             <Text style={styles.pauseText}>HOLD</Text>
-          </View>
-        )}
-
-        {/* Breathing Guide Circles */}
-        <View style={[styles.guideCircle, styles.innerCircle]} />
-        <View style={[styles.guideCircle, styles.outerCircle]} />
-        
-        {/* Phase Progress Indicator */}
-        {sessionStarted && currentPhase !== 'ready' && currentPhase !== 'complete' && (
-          <View style={styles.phaseProgressContainer}>
-            <View style={styles.phaseProgressBar}>
-              <Animated.View
-                style={[
-                  styles.phaseProgressFill,
-                  {
-                    width: phaseProgressWidth.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                    backgroundColor: getBallColor(),
-                  },
-                ]}
-              />
-            </View>
           </View>
         )}
       </View>
@@ -504,12 +587,34 @@ const styles = StyleSheet.create({
   complete: {
     color: '#4ecdc4',
   },
+  getReady: {
+    color: '#ffffff',
+    fontSize: 36,
+  },
+  countdown: {
+    color: '#ffcc00',
+    fontSize: 48,
+    fontWeight: '600',
+  },
+  go: {
+    color: '#00ffcc',
+    fontSize: 56,
+    fontWeight: '700',
+  },
   counter: {
     fontSize: 16,
     opacity: 0.7,
     marginBottom: 10,
     color: '#fff',
     textAlign: 'center',
+  },
+  readyInfo: {
+    fontSize: 16,
+    opacity: 0.7,
+    marginBottom: 10,
+    color: '#4ecdc4',
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   timer: {
     fontSize: 14,
@@ -522,28 +627,15 @@ const styles = StyleSheet.create({
   breathingContainer: {
     position: 'relative',
     width: 300,
-    height: 300,
+    height: 280,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginVertical: 40,
-  },
-  breathingBall: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    position: 'absolute',
-    shadowColor: '#00ffcc',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0.8,
-    shadowRadius: 20,
-    elevation: 10,
+    paddingVertical: 20,
   },
   pauseIndicator: {
     position: 'absolute',
-    top: 120,
+    bottom: 10,
     backgroundColor: 'rgba(255, 204, 0, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255, 204, 0, 0.3)',
@@ -556,37 +648,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 2,
     fontWeight: '600',
-  },
-  guideCircle: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderRadius: 150,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  innerCircle: {
-    width: 150,
-    height: 150,
-  },
-  outerCircle: {
-    width: 250,
-    height: 250,
-  },
-  phaseProgressContainer: {
-    position: 'absolute',
-    bottom: -20,
-    width: 200,
-    alignItems: 'center',
-  },
-  phaseProgressBar: {
-    width: '100%',
-    height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 1.5,
-    overflow: 'hidden',
-  },
-  phaseProgressFill: {
-    height: '100%',
-    borderRadius: 1.5,
   },
   progressContainer: {
     marginTop: 40,

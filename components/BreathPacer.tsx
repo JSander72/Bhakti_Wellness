@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 // # BreathPacer component lets user set breathing parameters
 // # and start a session. It doesn't do any animation or timing itself;
@@ -24,11 +24,31 @@ export default function BreathPacer() {
 
 
   const handleStart = () => {
+    // Validate inputs before proceeding
+    const bpmValue = Number(bpm) || 6;
+    const timerValue = Number(timerMin) || 5;
+    
+    if (bpmValue <= 0 || bpmValue > 60) {
+      Alert.alert('Invalid BPM', 'Please enter a valid BPM between 1 and 60.');
+      return;
+    }
+    
+    if (timerValue <= 0 || timerValue > 60) {
+      Alert.alert('Invalid Timer', 'Please enter a valid timer between 1 and 60 minutes.');
+      return;
+    }
+
     const cycleDurationMs = usingLengths
       ? ( ( +inhale + +pause1 + +exhale + +pause2 ) || 0 ) * 1000
-      : Math.round(60000 / ( +bpm || 6 ));
+      : Math.round(60000 / bpmValue);
 
-    const totalBreaths = Math.max(1, Math.round((Number(timerMin) * 60_000) / Math.max(1, cycleDurationMs)));
+    // Validate cycle duration
+    if (cycleDurationMs <= 0) {
+      Alert.alert('Invalid Settings', 'Please enter valid breathing timings.');
+      return;
+    }
+
+    const totalBreaths = Math.max(1, Math.round((timerValue * 60_000) / Math.max(1, cycleDurationMs)));
 
     // Calculate individual phase durations in milliseconds
     let inhaleMs, pause1Ms, exhaleMs, pause2Ms;
@@ -46,6 +66,20 @@ export default function BreathPacer() {
       exhaleMs = cycleDurationMs * 0.6;
       pause2Ms = 0;
     }
+
+    // Debug log the calculated parameters
+    console.log('BreathPacer Parameters:', {
+      usingLengths,
+      bpm: +bpm,
+      timerMin: Number(timerMin),
+      cycleDurationMs,
+      totalBreaths,
+      inhaleMs,
+      pause1Ms,
+      exhaleMs,
+      pause2Ms,
+      selectedSound
+    });
 
     router.push({
       pathname: '/(tabs)/session',
