@@ -117,11 +117,6 @@ export class ProductionSoundManager {
     return this.isPlaying;
   }
 
-  getIsSupported(): boolean {
-    // expo-av is supported on all platforms
-    return true;
-  }
-
   getCurrentSoundType(): string | null {
     return this.currentSoundType;
   }
