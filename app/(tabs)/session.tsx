@@ -72,10 +72,8 @@ export default function Session() {
   const [currentPhaseTimeRemaining, setCurrentPhaseTimeRemaining] = useState(0);
   
   // Animated values
-  const [waveAmplitude, setWaveAmplitude] = useState(0.3);
-  const progressWidth = useRef(new Animated.Value(0)).current;
+  const [waveAmplitude] = useState(0.85); // Constant amplitude for consistent wave effect
   const instructionOpacity = useRef(new Animated.Value(1)).current;
-  const phaseProgressWidth = useRef(new Animated.Value(0)).current;
   const completionScale = useRef(new Animated.Value(0)).current;
   const countdownScale = useRef(new Animated.Value(1)).current;
   
@@ -84,7 +82,6 @@ export default function Session() {
   
   // Session timing
   const sessionStartTime = useRef<number | null>(null);
-  const phaseStartTime = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
 
   // Initialize audio
@@ -93,12 +90,8 @@ export default function Session() {
       // Note: Audio mode is now handled by ProductionSoundManager
       // Start background sound if one is selected
       if (selectedSound !== 'none' && soundManager.current) {
-        if (soundManager.current.getIsSupported()) {
-          await soundManager.current.start(selectedSound);
-          console.log('Background sound started:', selectedSound);
-        } else {
-          console.log('Background sound not supported on this platform:', selectedSound);
-        }
+        await soundManager.current.start(selectedSound);
+        console.log('Background sound started:', selectedSound);
       }
     } catch (error) {
       console.log('Audio setup failed:', error);
@@ -148,33 +141,6 @@ export default function Session() {
     }, [selectedSound, setupAudio, sessionStarted])
   );
 
-  const animateWaveAmplitude = useCallback((phase: string, progress: number) => {
-    // Set appropriate amplitude for each phase
-    if (phase === 'ready') {
-      // Set initial amplitude during countdown/ready state
-      const targetAmplitude = 0.85;
-      setWaveAmplitude(targetAmplitude);
-      return;
-    }
-    
-    // Keep consistent amplitude throughout breathing phases - only change for holds
-    if (phase === 'pause1' || phase === 'pause2') {
-      // Don't change amplitude during holds - keep current amplitude
-      return;
-    }
-    
-    // Use higher amplitude for more dramatic wave effect
-    const targetAmplitude = 0.85; // Increased from 0.6 for more dramatic waves
-    setWaveAmplitude(targetAmplitude);
-  }, []);
-
-  // Set initial wave amplitude for ready phase
-  useEffect(() => {
-    if (currentPhase === 'ready') {
-      animateWaveAmplitude('ready', 0);
-    }
-  }, [currentPhase, animateWaveAmplitude]);
-
   const getPhaseInfo = useCallback((elapsed: number) => {
     const cycleTime = elapsed % cycleDurationMs;
     let accumTime = 0;
@@ -183,7 +149,6 @@ export default function Session() {
       return { 
         name: 'inhale' as const, 
         progress: cycleTime / inhaleMs,
-        isNewCycle: cycleTime < 100, // First 100ms of new cycle
         phaseElapsed: cycleTime,
         phaseDuration: inhaleMs
       };
@@ -193,7 +158,6 @@ export default function Session() {
       return { 
         name: 'pause1' as const, 
         progress: phaseElapsed / pause1Ms,
-        isNewCycle: false,
         phaseElapsed,
         phaseDuration: pause1Ms
       };
@@ -204,7 +168,6 @@ export default function Session() {
       return { 
         name: 'exhale' as const, 
         progress: phaseElapsed / exhaleMs,
-        isNewCycle: false,
         phaseElapsed,
         phaseDuration: exhaleMs
       };
@@ -215,7 +178,6 @@ export default function Session() {
       return { 
         name: 'pause2' as const, 
         progress: phaseElapsed / pause2Ms,
-        isNewCycle: false,
         phaseElapsed,
         phaseDuration: pause2Ms
       };
@@ -224,7 +186,6 @@ export default function Session() {
     return { 
       name: 'inhale' as const, 
       progress: 0, 
-      isNewCycle: false,
       phaseElapsed: 0,
       phaseDuration: inhaleMs
     };
@@ -235,18 +196,10 @@ export default function Session() {
 
     const elapsed = Date.now() - sessionStartTime.current;
     const newBreath = Math.floor(elapsed / cycleDurationMs);
-    const overallProgress = Math.min(1, elapsed / (totalBreaths * cycleDurationMs));
     
     // Update remaining time
     const remaining = Math.max(0, totalSessionMs - elapsed);
     setRemainingTimeMs(remaining);
-
-    // Update progress bar
-    Animated.timing(progressWidth, {
-      toValue: overallProgress,
-      duration: 100,
-      useNativeDriver: false,
-    }).start();
 
     // Check if session is complete
     if (newBreath >= totalBreaths && elapsed >= totalBreaths * cycleDurationMs) {
@@ -297,7 +250,6 @@ export default function Session() {
     // Update phase if it changed
     if (phaseInfo.name !== currentPhase) {
       setCurrentPhase(phaseInfo.name);
-      phaseStartTime.current = Date.now();
       
       // Animate instruction text transition
       Animated.sequence([
@@ -314,16 +266,6 @@ export default function Session() {
       ]).start();
     }
 
-    // Update phase progress for phase progress indicator
-    Animated.timing(phaseProgressWidth, {
-      toValue: phaseInfo.progress,
-      duration: 100,
-      useNativeDriver: false,
-    }).start();
-
-    // Animate wave amplitude
-    animateWaveAmplitude(phaseInfo.name, phaseInfo.progress);
-
     // Continue animation
     animationRef.current = requestAnimationFrame(updateSession);
   }, [
@@ -333,9 +275,6 @@ export default function Session() {
     totalBreaths, 
     totalSessionMs,
     getPhaseInfo, 
-    animateWaveAmplitude, 
-    progressWidth, 
-    phaseProgressWidth,
     instructionOpacity,
     completionScale,
     router
@@ -369,7 +308,6 @@ export default function Session() {
     setCurrentPhase('inhale');
     setCurrentPhaseProgress(0); // Start at beginning of inhale
     sessionStartTime.current = Date.now();
-    phaseStartTime.current = Date.now();
     animationRef.current = requestAnimationFrame(updateSession);
   }, [updateSession, cycleDurationMs, totalBreaths, inhaleMs, pause1Ms, exhaleMs, pause2Ms]);
 
@@ -483,10 +421,7 @@ export default function Session() {
     }
   };
 
-  const getWaveColor = () => {
-    // Use single consistent color throughout entire process
-    return '#00ffcc';
-  };
+  const waveColor = '#00ffcc';
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -535,45 +470,40 @@ export default function Session() {
       )}
 
       <View style={styles.breathingContainer}>
-        {/* Show wave during countdown (ready state) and during session */}
-        {(showCountdown || !showCountdown) && (
-          <>
-            {/* Sound Wave Animation - First */}
-            <View style={styles.waveContainer}>
-              <SoundWave
-                amplitude={waveAmplitude}
-                color={getWaveColor()}
-                phase={currentPhase}
-                phaseProgress={currentPhaseProgress}
-                width={responsiveWaveWidth}
-                height={responsiveWaveHeight}
-              />
-            </View>
+        {/* Sound Wave Animation - First */}
+        <View style={styles.waveContainer}>
+          <SoundWave
+            amplitude={waveAmplitude}
+            color={waveColor}
+            phase={currentPhase}
+            phaseProgress={currentPhaseProgress}
+            width={responsiveWaveWidth}
+            height={responsiveWaveHeight}
+          />
+        </View>
+        
+        {/* Breathing Circle - Second - Now responsive */}
+        {!showCountdown && (
+          <View style={styles.circleContainer}>
+            <BreathingCircle
+              phase={currentPhase}
+              phaseProgress={currentPhaseProgress}
+              color={waveColor}
+              size={responsiveCircleSize}
+            />
             
-            {/* Breathing Circle - Second - Now responsive */}
-            {!showCountdown && (
-              <View style={styles.circleContainer}>
-                <BreathingCircle
-                  phase={currentPhase}
-                  phaseProgress={currentPhaseProgress}
-                  color={getWaveColor()}
-                  size={responsiveCircleSize}
-                />
-                
-                {/* Phase countdown overlay centered in circle */}
-                {sessionStarted && currentPhase !== 'complete' && (
-                  <View style={styles.phaseCountdownOverlay}>
-                    <Text style={[styles.phaseLabel, { fontSize: responsiveFontSizes.phaseLabel }]}>
-                      {getPhaseDisplayName()}
-                    </Text>
-                    <Text style={[styles.phaseCountdown, { fontSize: responsiveFontSizes.phaseCountdown }]}>
-                      {currentPhaseTimeRemaining}s
-                    </Text>
-                  </View>
-                )}
+            {/* Phase countdown overlay centered in circle */}
+            {sessionStarted && currentPhase !== 'complete' && (
+              <View style={styles.phaseCountdownOverlay}>
+                <Text style={[styles.phaseLabel, { fontSize: responsiveFontSizes.phaseLabel }]}>
+                  {getPhaseDisplayName()}
+                </Text>
+                <Text style={[styles.phaseCountdown, { fontSize: responsiveFontSizes.phaseCountdown }]}>
+                  {currentPhaseTimeRemaining}s
+                </Text>
               </View>
             )}
-          </>
+          </View>
         )}
       </View>
 

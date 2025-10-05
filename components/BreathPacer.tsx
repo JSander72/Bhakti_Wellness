@@ -184,42 +184,22 @@ export default function BreathPacer() {
         <View style={styles.soundSection}>
           <Text style={styles.soundLabel}>Background Sound</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.soundScroll}>
-            <Pressable 
-              style={[styles.soundOption, selectedSound === "none" && styles.soundOptionSelected]}
-              onPress={() => setSelectedSound("none")}
-            >
-              <Text style={styles.soundOptionText}>None</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.soundOption, selectedSound === "ocean" && styles.soundOptionSelected]}
-              onPress={() => setSelectedSound("ocean")}
-            >
-              <Text style={styles.soundOptionText}>Ocean</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.soundOption, selectedSound === "rain" && styles.soundOptionSelected]}
-              onPress={() => setSelectedSound("rain")}
-            >
-              <Text style={styles.soundOptionText}>Rain</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.soundOption, selectedSound === "forest" && styles.soundOptionSelected]}
-              onPress={() => setSelectedSound("forest")}
-            >
-              <Text style={styles.soundOptionText}>Forest</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.soundOption, selectedSound === "singing-bowl" && styles.soundOptionSelected]}
-              onPress={() => setSelectedSound("singing-bowl")}
-            >
-              <Text style={styles.soundOptionText}>Singing Bowl</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.soundOption, selectedSound === "white-noise" && styles.soundOptionSelected]}
-              onPress={() => setSelectedSound("white-noise")}
-            >
-              <Text style={styles.soundOptionText}>White Noise</Text>
-            </Pressable>
+            {[
+              { value: "none", label: "None" },
+              { value: "ocean", label: "Ocean" },
+              { value: "rain", label: "Rain" },
+              { value: "forest", label: "Forest" },
+              { value: "singing-bowl", label: "Singing Bowl" },
+              { value: "white-noise", label: "White Noise" }
+            ].map((option) => (
+              <Pressable 
+                key={option.value}
+                style={[styles.soundOption, selectedSound === option.value && styles.soundOptionSelected]}
+                onPress={() => setSelectedSound(option.value)}
+              >
+                <Text style={styles.soundOptionText}>{option.label}</Text>
+              </Pressable>
+            ))}
           </ScrollView>
         </View>
         <Pressable 

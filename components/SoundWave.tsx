@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 interface SoundWaveProps {
@@ -19,7 +19,6 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   width = 300,
   height = 120,
 }) => {
-  const opacityAnim = useRef(new Animated.Value(0.8)).current;
   const animationRef = useRef<number | null>(null);
   const animationTime = useRef(0);
   const [currentPath, setCurrentPath] = React.useState('');
@@ -66,11 +65,6 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     
     return path;
   }, [width, height]);
-
-  useEffect(() => {
-    // Don't animate opacity changes - keep it constant for smoother transitions
-    // This prevents visual changes when transitioning between phases
-  }, [phase, opacityAnim]);
 
   // Initialize wave on mount
   useEffect(() => {
@@ -140,7 +134,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
 
   return (
     <View style={[styles.container, { width, height }]}>
-      <Animated.View style={[styles.waveContainer, { opacity: opacityAnim }]}>
+      <View style={[styles.waveContainer, { opacity: 0.8 }]}>
         <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
           {/* Rebuilt wave aligned to the center dot with unidirectional drift */}
           <Path
@@ -170,7 +164,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
             opacity={0.3}
           />
         </Svg>
-      </Animated.View>
+      </View>
       
       {/* Glow effect container */}
       <View style={[styles.glow, { 
