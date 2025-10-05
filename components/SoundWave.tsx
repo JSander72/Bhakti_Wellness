@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 interface SoundWaveProps {
@@ -167,11 +167,27 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
       </View>
       
       {/* Glow effect container */}
-      <View style={[styles.glow, { 
-        shadowColor: color,
-        width: width * 0.9,
-        height: height * 0.7,
-      }]} />
+      <View
+        style={[
+          styles.glow,
+          // Dimensions (all platforms)
+          { width: width * 0.9, height: height * 0.7 },
+          // Platform-specific shadow presentation
+          Platform.select({
+            web: {
+              // Use CSS box-shadow on web
+              boxShadow: `0px 0px 25px ${color}` as any,
+            },
+            ios: {
+              shadowColor: color,
+            },
+            android: {
+              shadowColor: color,
+            },
+            default: {},
+          }),
+        ]}
+      />
     </View>
   );
 };
@@ -191,12 +207,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 60,
     backgroundColor: 'transparent',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 25,
-    elevation: 10,
+    // Only apply native shadow props on native platforms
+    ...Platform.select({
+      web: {},
+      default: {
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3,
+        shadowRadius: 25,
+        elevation: 10,
+      },
+    }),
   },
 });

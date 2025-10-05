@@ -3,7 +3,7 @@ import { SoundWave } from '@/components/SoundWave';
 import { ProductionSoundManager } from '@/utils/productionSoundManager';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 
 export default function Session() {
@@ -222,13 +222,16 @@ export default function Session() {
         useNativeDriver: true,
       }).start();
       
+      // Auto-redirect to home after a brief celebration
       setTimeout(() => {
-        Alert.alert(
-          'Breath Session Complete', 
-          'Great job! You completed your breathing session 🌟\n\nYou practiced mindful breathing and took time for yourself today.', 
-          [{ text: 'Continue', onPress: () => router.push('/') }]
-        );
-      }, 2000); // Increased delay to show celebration
+        try {
+          // Navigate back to the Tabs home screen
+          router.push('/(tabs)');
+        } catch {
+          // Fallback to root if typing complains, root will redirect accordingly
+          router.push('/');
+        }
+      }, 3000); // Show celebration for ~3s before redirect
       return;
     }
 
@@ -595,7 +598,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginBottom: '2%',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   phaseCountdown: {
@@ -604,7 +607,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   breathingContainer: {

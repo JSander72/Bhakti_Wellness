@@ -1,6 +1,6 @@
 // app/splash.tsx
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Heart } from 'lucide-react-native';
 import { Image, Pressable, Text, View } from 'react-native';
 import * as Animatable from 'react-native-animatable';
 
@@ -45,7 +45,7 @@ export default function Splash() {
           duration={1200}
           style={{ alignItems: 'center', justifyContent: 'center' }}
         >
-          <Heart size={100} stroke="#a02528" fill="#a02528" />
+          <MaterialCommunityIcons name="heart" size={100} color="#a02528" />
         </Animatable.View>
       </Pressable>
     </View>
