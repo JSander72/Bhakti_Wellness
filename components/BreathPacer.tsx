@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import React, { useMemo, useState } from "react";
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Dimensions, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 // # BreathPacer component lets user set breathing parameters
@@ -32,13 +32,40 @@ export default function BreathPacer() {
   const [exhale, setExhale] = useState<string>("0");
   const [pause2, setPause2] = useState<string>("0");
   const [timerMin, setTimerMin] = useState<string>("5");
+  const [selectedSound, setSelectedSound] = useState<string>("none");
+
+  // Track if user is returning from a session to optionally reset state
+  const [hasNavigatedToSession, setHasNavigatedToSession] = useState(false);
+
+  // Reset to default values
+  const resetToDefaults = useCallback(() => {
+    setBpm("6");
+    setInhale("0");
+    setPause1("0");
+    setExhale("0");
+    setPause2("0");
+    setTimerMin("5");
+    setSelectedSound("none");
+  }, []);
+
+  // Handle when the user focuses back on this screen from a session
+  useFocusEffect(
+    useCallback(() => {
+      // If user navigated to session and is now back, they've completed a session
+      if (hasNavigatedToSession) {
+        // Reset the flag
+        setHasNavigatedToSession(false);
+        // Keep the current values but user can start a new session
+        // This allows them to either use the same settings or modify them
+        console.log('User returned from session - ready for new session');
+      }
+    }, [hasNavigatedToSession])
+  );
 
   const usingLengths = useMemo(() => {
     const n = [inhale, pause1, exhale, pause2].map((v) => Number(v || 0));
     return n.some((v) => v > 0);
   }, [inhale, pause1, exhale, pause2]);
-
-  const [selectedSound, setSelectedSound] = useState<string>("none");
 
 
   const handleStart = () => {
@@ -86,10 +113,7 @@ export default function BreathPacer() {
     }
 
     // Debug log the calculated parameters
-    console.log('BreathPacer Parameters:', {
-      usingLengths,
-      bpm: +bpm,
-      timerMin: Number(timerMin),
+    console.log('Starting session with parameters:', {
       cycleDurationMs,
       totalBreaths,
       inhaleMs,
@@ -98,6 +122,9 @@ export default function BreathPacer() {
       pause2Ms,
       selectedSound
     });
+
+    // Track that user is navigating to a session
+    setHasNavigatedToSession(true);
 
     router.push({
       pathname: '/(tabs)/session',
@@ -202,6 +229,18 @@ export default function BreathPacer() {
             ))}
           </ScrollView>
         </View>
+        
+        {/* Reset Button */}
+        <Pressable 
+          style={({ pressed }) => [
+            styles.resetBtn, 
+            pressed && { opacity: 0.7 }
+          ]} 
+          onPress={resetToDefaults}
+        >
+          <Text style={styles.resetText}>Reset to Defaults</Text>
+        </Pressable>
+        
         <Pressable 
           style={({ pressed }) => [
             styles.startBtn, 
@@ -277,7 +316,24 @@ const styles = StyleSheet.create({
   timerPill: { backgroundColor: COLORS.cream, borderRadius: 12, paddingHorizontal: 18, height: 56, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
   timerText: { fontWeight: "700", color: "#1A1A1A", minWidth: 40, textAlign: "center" },
   minutesLabel: { fontWeight: "700", color: "#1A1A1A" },
-  startBtn: { marginTop: 26, backgroundColor: COLORS.red, borderRadius: 24, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
+  resetBtn: { 
+    marginTop: 16, 
+    backgroundColor: "transparent", 
+    borderRadius: 16, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    alignSelf: "stretch",
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cream + "50"
+  },
+  resetText: { 
+    color: COLORS.creamText, 
+    fontWeight: "600", 
+    fontSize: 16,
+    opacity: 0.8
+  },
+  startBtn: { marginTop: 16, backgroundColor: COLORS.red, borderRadius: 24, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
   startText: { color: "#fff", fontWeight: "800" },
   soundSection: { width: "100%", marginTop: 22 },
 soundLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "700", marginBottom: 12 },
