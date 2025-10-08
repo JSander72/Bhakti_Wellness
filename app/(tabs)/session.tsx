@@ -4,7 +4,7 @@ import { ProductionSoundManager } from '@/utils/productionSoundManager';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 
 export default function Session() {
   useKeepAwake();
@@ -163,6 +163,13 @@ export default function Session() {
       // Return cleanup function for when tab loses focus
       return () => {
         console.log('Session tab lost focus - stopping audio');
+        // Web a11y: blur any focused element so it doesn't remain inside an aria-hidden ancestor
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const active = document.activeElement as HTMLElement | null;
+          if (active && typeof active.blur === 'function') {
+            active.blur();
+          }
+        }
         // Tab is losing focus - always stop any playing sounds
         if (soundManager.current) {
           soundManager.current.stop();
@@ -511,6 +518,7 @@ export default function Session() {
             color={waveColor}
             phase={currentPhase}
             phaseProgress={currentPhaseProgress}
+            sessionStarted={sessionStarted}
             width={responsiveWaveWidth}
             height={responsiveWaveHeight}
           />
@@ -628,18 +636,34 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     opacity: 0.9,
     marginBottom: '2%',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    // Cross-platform text shadow
+    ...Platform.select({
+      web: {
+        textShadow: '0px 1px 2px rgba(0,0,0,0.5)',
+      },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+      },
+    }),
   },
   phaseCountdown: {
     color: '#ffffff',
     textAlign: 'center',
     fontWeight: '700',
     letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    // Cross-platform text shadow
+    ...Platform.select({
+      web: {
+        textShadow: '0px 1px 2px rgba(0,0,0,0.5)',
+      },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+      },
+    }),
   },
   breathingContainer: {
     position: 'relative',

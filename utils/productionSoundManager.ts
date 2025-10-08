@@ -1,9 +1,9 @@
 /**
- * Production Sound Manager using expo-av for cross-platform audio support
+ * Production Sound Manager using expo-audio for cross-platform audio support
  * Supports iOS, Android, and Web with real audio files
  */
 
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 
 export class ProductionSoundManager {
   private sound: Audio.Sound | null = null;
@@ -67,14 +67,12 @@ export class ProductionSoundManager {
       }
 
       // Load and play the audio file
-      const { sound } = await Audio.Sound.createAsync(
-        audioSource,
-        {
-          isLooping: true,
-          volume: 0.3,
-          shouldPlay: true,
-        }
-      );
+      // Using expo-audio: load sound and start playback
+      const sound = new Audio.Sound();
+      await sound.loadAsync(audioSource);
+      await sound.setIsLoopingAsync(true);
+      await sound.setVolumeAsync(0.3);
+      await sound.playAsync();
 
       this.sound = sound;
       this.isPlaying = true;

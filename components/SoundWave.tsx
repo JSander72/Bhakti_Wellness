@@ -1,14 +1,20 @@
-import React, { useEffect, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ImageBackground, ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
+import { Circle, Path, Svg } from 'react-native-svg';
 
 interface SoundWaveProps {
   amplitude: number; // 0 to 1, controls wave height
   color: string;
   phase: 'inhale' | 'exhale' | 'pause1' | 'pause2' | 'ready' | 'complete';
   phaseProgress: number; // 0 to 1, progress within current phase
+  sessionStarted: boolean; // Whether the breathing session has actually started
   width?: number;
   height?: number;
+  // Optional container visuals and layout
+  backgroundImage?: ImageSourcePropType;
+  backgroundColor?: string;
+  borderRadius?: number;
+  padding?: number;
 }
 
 export const SoundWave: React.FC<SoundWaveProps> = ({
@@ -16,155 +22,140 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
   color,
   phase,
   phaseProgress,
+  sessionStarted,
   width = 300,
   height = 120,
+  backgroundImage,
+  backgroundColor = 'rgba(255,255,255,0.03)',
+  borderRadius = 16,
+  padding,
 }) => {
-  const animationRef = useRef<number | null>(null);
-  const animationTime = useRef(0);
   const [currentPath, setCurrentPath] = React.useState('');
   const [dotPosition, setDotPosition] = React.useState({ x: width / 2, y: height / 2 });
+  // Breathing-driven phase (theta) and a cumulative base that ensures continuous forward scrolling across cycles
+  const prevThetaRef = useRef<number | null>(null);
+  const phaseBaseRef = useRef<number>(0); // increases by 2π when theta wraps to keep wave flowing in one direction
 
-  // Single consistent wave properties - no changes between phases
-  const WAVE_FREQUENCY = 2;
-  const WAVE_DAMPENING = 1.8; // Increased from 1.2 for more dramatic waves
-  const ANIMATION_SPEED = 0.006; // Balanced speed for breathing rhythm
+  // Wave configuration
+  const WAVELENGTH = 150; // Wavelength in pixels
 
-  // Phase alignment helpers (ensure valley/peak happen at the center x)
-  // For a sine wave: peak at angle = π/2, valley at angle = 3π/2
-  const KX_CENTER = 0.5 * Math.PI * WAVE_FREQUENCY; // phase contribution at x = width/2
-  const PEAK_OFFSET = (Math.PI / 2) - KX_CENTER;     // offset so center shows a peak
-  const VALLEY_OFFSET = (3 * Math.PI / 2) - KX_CENTER; // offset so center shows a valley
-  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+  // Compute breathing angle theta (0.. ~3π/2) from phase and progress
+  // Mapping: inhale -> 0..π/2 (rise), pause1 -> π/2, exhale -> π/2..3π/2 (fall), pause2 -> 3π/2, ready/complete -> 0
+  const getTheta = useCallback(() => {
+    if (phase === 'inhale') {
+      return (Math.PI / 2) * Math.min(1, Math.max(0, phaseProgress));
+    }
+    if (phase === 'pause1') {
+      return Math.PI / 2;
+    }
+    if (phase === 'exhale') {
+      return Math.PI / 2 + Math.PI * Math.min(1, Math.max(0, phaseProgress));
+    }
+    if (phase === 'pause2') {
+      return (3 * Math.PI) / 2;
+    }
+    // ready/complete
+    return 0;
+  }, [phase, phaseProgress]);
 
-  // Generate a center-anchored drifting wave: the phase at center stays aligned with baseOffset,
-  // while the sides drift with `driftPhase` to create leftward flow without desynchronizing the center.
-  const generateWavePath = React.useCallback((driftPhase: number, waveAmplitude: number, verticalShift: number = 0, baseOffset: number = 0) => {
-    // Scale the number of points based on width for better quality on larger screens
-    const points = Math.max(60, Math.min(120, Math.floor(width / 4)));
+  // Generate an anchored sine wave path with phaseOffset controlling horizontal scroll
+  const generateWavePath = useCallback((phaseOffset: number): string => {
+    const centerX = width / 2;
     const centerY = height / 2;
+    
+    // Use a larger visual amplitude for the wave to make it more pronounced
+    const baseWaveAmp = Math.min(height * 0.3, 40); // 30% of height or max 40px
+    const visualWaveAmplitude = baseWaveAmp * (0.5 + amplitude * 0.5);
+    
     let path = '';
+    const step = 2; // Pixels between points
     
-    // Use consistent wave properties throughout - no changes between phases
-    const frequency = WAVE_FREQUENCY;
-    const dampening = WAVE_DAMPENING;
-    
-    for (let i = 0; i <= points; i++) {
-      const x = (i / points) * width;
-      // Center-anchored phase gradient: keeps center aligned, drifts edges
-      const xNorm = (x / width) - 0.5; // -0.5..0.5 (0 at center)
-      const phase = (x / width) * Math.PI * frequency + baseOffset + driftPhase * xNorm * 2; // zero drift at center
-      const waveY = Math.sin(phase) * waveAmplitude * dampening;
-      const y = centerY + waveY + verticalShift;
+    for (let x = 0; x <= width; x += step) {
+      const relativeX = x - centerX;
+      const wavePhase = (relativeX / WAVELENGTH) * Math.PI * 2 + phaseOffset;
+      const y = centerY + Math.sin(wavePhase) * visualWaveAmplitude; // anchored to centerY
       
-      if (i === 0) {
-        path = `M ${x} ${y}`;
+      if (x === 0) {
+        path += `M ${x} ${y}`;
       } else {
         path += ` L ${x} ${y}`;
       }
     }
     
     return path;
-  }, [width, height]);
+  }, [width, height, amplitude]);
 
-  // Initialize wave on mount
   useEffect(() => {
+    // Compute theta from breathing phase/progress
+    const theta = getTheta();
+
+    // Detect wrap (e.g., from ~3π/2 back to 0 at new cycle) and adjust base
+    // Add exactly the theta drop to keep wavePhase continuous (no jump)
+    if (prevThetaRef.current !== null) {
+      const prevTheta = prevThetaRef.current;
+      const drop = theta - prevTheta; // negative on wrap
+      if (drop < -Math.PI / 2) {
+        // Advance base by the amount we lost so (base+theta) stays continuous
+        phaseBaseRef.current += prevTheta - theta;
+      }
+    }
+    prevThetaRef.current = theta;
+
+    // Phase that drives the whole wave
+    const wavePhase = phaseBaseRef.current + theta;
+
+    // Dimensions and amplitude
+    const centerX = width / 2;
     const centerY = height / 2;
-    const baseAmplitude = amplitude * (height * 0.35);
-    const initialBaseOffset = VALLEY_OFFSET; // Start with valley at center
-    
-    // Initialize path and dot position
-    const initialPath = generateWavePath(0, baseAmplitude, 0, initialBaseOffset);
-    setCurrentPath(initialPath);
-    
-    const dotX = width / 2;
-  const waveY = Math.sin(KX_CENTER + initialBaseOffset) * baseAmplitude * WAVE_DAMPENING;
-    const dotY = centerY + waveY;
+    const baseWaveAmp = Math.min(height * 0.3, 40);
+    const visualWaveAmplitude = baseWaveAmp * (0.5 + amplitude * 0.5);
+    const innerPad = padding ?? Math.min(12, height * 0.08);
+
+    // Dot stays centered horizontally and rides the wave vertically
+    const dotX = centerX;
+    let dotY = centerY + Math.sin(wavePhase) * visualWaveAmplitude;
+    // Clamp for safety
+    const minY = innerPad;
+    const maxY = height - innerPad;
+    if (dotY < minY) dotY = minY;
+    if (dotY > maxY) dotY = maxY;
+
+    // Generate wave path with current phase
+    const wavePath = generateWavePath(wavePhase);
+    setCurrentPath(wavePath);
     setDotPosition({ x: dotX, y: dotY });
-  }, [width, height, amplitude, generateWavePath, VALLEY_OFFSET, KX_CENTER]);
-
-  useEffect(() => {
-    const animate = () => {
-      const centerY = height / 2;
-      const baseAmplitude = amplitude * (height * 0.35);
-      
-      // Two-speed system for drift (unidirectional): move on inhale/exhale, freeze on holds, gentle on ready
-      if (phase === 'inhale' || phase === 'exhale') animationTime.current += ANIMATION_SPEED;
-      else if (phase === 'ready') animationTime.current += ANIMATION_SPEED * 0.5;
-      
-      // Calculate dot Y position purely from breathing phase (center alignment)
-      // Also use this to lock the path's center to the breathing phase while adding drift.
-      let centerPhaseAngle = KX_CENTER + VALLEY_OFFSET; // default valley
-      const clamp = (t: number) => Math.min(1, Math.max(0, t));
-      if (phase === 'inhale') {
-        centerPhaseAngle = KX_CENTER + lerp(VALLEY_OFFSET, PEAK_OFFSET, clamp(phaseProgress));
-      } else if (phase === 'pause1') {
-        centerPhaseAngle = KX_CENTER + PEAK_OFFSET;
-      } else if (phase === 'exhale') {
-        centerPhaseAngle = KX_CENTER + lerp(PEAK_OFFSET, VALLEY_OFFSET, clamp(phaseProgress));
-      } else if (phase === 'pause2') {
-        centerPhaseAngle = KX_CENTER + VALLEY_OFFSET;
-      } else if (phase === 'ready') {
-        centerPhaseAngle = KX_CENTER + VALLEY_OFFSET;
-      }
-
-  // Build path with center-anchored baseOffset and driftPhase
-  const baseOffset = centerPhaseAngle - KX_CENTER;
-  const driftPhase = animationTime.current;
-  const newPath = generateWavePath(driftPhase, baseAmplitude, 0, baseOffset);
-      setCurrentPath(newPath);
-
-  // Fixed center dot position - always center of screen horizontally
-      const dotX = width / 2;
-  const waveYCenter = Math.sin(centerPhaseAngle) * baseAmplitude * WAVE_DAMPENING;
-  const dotY = centerY + waveYCenter;
-      
-      setDotPosition({ x: dotX, y: dotY });
-      
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [amplitude, generateWavePath, phase, phaseProgress, width, height, PEAK_OFFSET, VALLEY_OFFSET, KX_CENTER]);
+  }, [getTheta, generateWavePath, width, height, amplitude, padding]);
 
   return (
-    <View style={[styles.container, { width, height }]}>
-      <View style={[styles.waveContainer, { opacity: 0.8 }]}>
-        <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
-          {/* Rebuilt wave aligned to the center dot with unidirectional drift */}
-          <Path
-            d={currentPath}
-            stroke={color}
-            strokeWidth={3}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          
-          {/* Fixed center dot indicator */}
-          <Circle
-            cx={dotPosition.x}
-            cy={dotPosition.y}
-            r={6}
-            fill={color}
-            opacity={0.9}
-          />
-          
-          {/* Dot glow effect */}
-          <Circle
-            cx={dotPosition.x}
-            cy={dotPosition.y}
-            r={12}
-            fill={color}
-            opacity={0.3}
-          />
-        </Svg>
-      </View>
+    <View style={[styles.container, { width, height }]}> 
+      {backgroundImage ? (
+        <ImageBackground
+          source={backgroundImage}
+          resizeMode="cover"
+          style={[styles.waveContainer, { borderRadius, overflow: 'hidden' }]}
+          imageStyle={{ borderRadius }}
+        >
+          <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
+            {/* Forward-moving wave that perfectly aligns with dot */}
+            <Path d={currentPath} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Breathing dot - always sits exactly on the wave */}
+            <Circle cx={dotPosition.x} cy={dotPosition.y} r={6} fill={color} opacity={0.9} />
+            {/* Dot glow effect */}
+            <Circle cx={dotPosition.x} cy={dotPosition.y} r={12} fill={color} opacity={0.3} />
+          </Svg>
+        </ImageBackground>
+      ) : (
+        <View style={[styles.waveContainer, { backgroundColor, borderRadius, overflow: 'hidden' }]}> 
+          <Svg width={width} height={height} style={StyleSheet.absoluteFillObject}>
+            {/* Forward-moving wave that perfectly aligns with dot */}
+            <Path d={currentPath} stroke={color} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Breathing dot - always sits exactly on the wave */}
+            <Circle cx={dotPosition.x} cy={dotPosition.y} r={6} fill={color} opacity={0.9} />
+            {/* Dot glow effect */}
+            <Circle cx={dotPosition.x} cy={dotPosition.y} r={12} fill={color} opacity={0.3} />
+          </Svg>
+        </View>
+      )}
       
       {/* Glow effect container */}
       <View
@@ -186,6 +177,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
             },
             default: {},
           }),
+          { pointerEvents: 'none' as any },
         ]}
       />
     </View>
