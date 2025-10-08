@@ -98,6 +98,37 @@ export default function Session() {
     }
   }, [selectedSound]);
 
+  // Reset session state when new parameters are received (new session starting)
+  useEffect(() => {
+    console.log('Resetting session state for new session');
+    
+    // Reset all state variables to initial values
+    setCurrentBreath(0);
+    setCurrentPhase('ready');
+    setSessionStarted(false);
+    setRemainingTimeMs(totalSessionMs);
+    setCurrentPhaseProgress(0);
+    setCountdownSeconds(10);
+    setShowCountdown(true);
+    setCurrentPhaseTimeRemaining(0);
+    
+    // Reset animated values
+    instructionOpacity.setValue(1);
+    completionScale.setValue(0);
+    countdownScale.setValue(1);
+    
+    // Reset session timing
+    sessionStartTime.current = null;
+    
+    // Cancel any running animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    console.log('✅ Session state reset complete');
+  }, [params.cycleDurationMs, params.totalBreaths, params.inhaleMs, params.pause1Ms, params.exhaleMs, params.pause2Ms, totalSessionMs, instructionOpacity, completionScale, countdownScale]);
+
   useEffect(() => {
     // Initialize sound manager
     soundManager.current = new ProductionSoundManager();
