@@ -55,11 +55,11 @@ export default function BreathPacer() {
       if (hasNavigatedToSession) {
         // Reset the flag
         setHasNavigatedToSession(false);
-        // Keep the current values but user can start a new session
-        // This allows them to either use the same settings or modify them
-        console.log('User returned from session - ready for new session');
+        // Clear inputs back to defaults so a new session starts fresh
+        resetToDefaults();
+        console.log('User returned from session - inputs reset to defaults');
       }
-    }, [hasNavigatedToSession])
+    }, [hasNavigatedToSession, resetToDefaults])
   );
 
   const usingLengths = useMemo(() => {

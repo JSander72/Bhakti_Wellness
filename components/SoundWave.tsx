@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { ImageBackground, ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
 import { Circle, Path, Svg } from 'react-native-svg';
 
@@ -32,40 +32,66 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
 }) => {
   const [currentPath, setCurrentPath] = React.useState('');
   const [dotPosition, setDotPosition] = React.useState({ x: width / 2, y: height / 2 });
-  // Breathing-driven phase (theta) and a cumulative base that ensures continuous forward scrolling across cycles
-  const prevThetaRef = useRef<number | null>(null);
-  const phaseBaseRef = useRef<number>(0); // increases by 2π when theta wraps to keep wave flowing in one direction
 
   // Wave configuration
   const WAVELENGTH = 150; // Wavelength in pixels
 
-  // Compute breathing angle theta (0.. ~3π/2) from phase and progress
-  // Mapping: inhale -> 0..π/2 (rise), pause1 -> π/2, exhale -> π/2..3π/2 (fall), pause2 -> 3π/2, ready/complete -> 0
-  const getTheta = useCallback(() => {
+  // Piecewise phase and amplitude to ensure perfect peak/valley alignment on pauses
+  // Anchors: valley = 3π/2, peak = π/2
+  const getPhaseAndAmplitude = useCallback(() => {
+    const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+    const snap = (v: number, eps = 0.0001) => (v <= eps ? 0 : v >= 1 - eps ? 1 : v);
+
+    const PHASE_VALLEY = 1.5 * Math.PI;
+    const PHASE_PEAK = 0.5 * Math.PI;
+
+    // Compute visual amplitude bounds from container height and provided amplitude prop
+    const centerY = height / 2;
+    const innerPad = padding ?? Math.min(12, height * 0.08);
+    const maxVisual = Math.max(0, centerY - innerPad);
+    // Base wave cap for visual pleasantness
+    const baseWaveCap = Math.min(height * 0.35, 40);
+    const A_MAX = Math.min(maxVisual, baseWaveCap) * (0.5 + amplitude * 0.5); // respect provided amplitude prop
+    const A_MIN = Math.min(A_MAX, Math.min(height * 0.10, 12)); // small but non-zero valley amplitude
+
+    let phaseOffset = PHASE_VALLEY;
+    let visualAmp = (A_MIN + A_MAX) / 2;
+
     if (phase === 'inhale') {
-      return (Math.PI / 2) * Math.min(1, Math.max(0, phaseProgress));
+      const p = snap(clamp01(phaseProgress));
+      phaseOffset = PHASE_VALLEY + Math.PI * p; // valley -> peak
+      visualAmp = A_MIN + (A_MAX - A_MIN) * p;  // ramp up
+    } else if (phase === 'pause1') {
+      phaseOffset = PHASE_PEAK; // hold at peak
+      visualAmp = A_MAX;
+    } else if (phase === 'exhale') {
+      const p = snap(clamp01(phaseProgress));
+      phaseOffset = PHASE_PEAK + Math.PI * p;   // peak -> valley
+      visualAmp = A_MAX - (A_MAX - A_MIN) * p;  // ramp down
+    } else if (phase === 'pause2') {
+      phaseOffset = PHASE_VALLEY; // hold at valley
+      visualAmp = A_MIN;
+    } else {
+      // ready/complete: default to gentle valley
+      phaseOffset = PHASE_VALLEY;
+      visualAmp = (A_MIN + A_MAX) / 2;
     }
-    if (phase === 'pause1') {
-      return Math.PI / 2;
-    }
-    if (phase === 'exhale') {
-      return Math.PI / 2 + Math.PI * Math.min(1, Math.max(0, phaseProgress));
-    }
-    if (phase === 'pause2') {
-      return (3 * Math.PI) / 2;
-    }
-    // ready/complete
-    return 0;
-  }, [phase, phaseProgress]);
+
+    return { phaseOffset, visualAmp };
+  }, [phase, phaseProgress, height, amplitude, padding]);
 
   // Generate an anchored sine wave path with phaseOffset controlling horizontal scroll
-  const generateWavePath = useCallback((phaseOffset: number): string => {
+  const generateWavePath = useCallback((phaseOffset: number, amplitudeOverride?: number): string => {
     const centerX = width / 2;
     const centerY = height / 2;
     
     // Use a larger visual amplitude for the wave to make it more pronounced
     const baseWaveAmp = Math.min(height * 0.3, 40); // 30% of height or max 40px
-    const visualWaveAmplitude = baseWaveAmp * (0.5 + amplitude * 0.5);
+    const rawAmp = baseWaveAmp * (0.5 + amplitude * 0.5);
+    const innerPad = padding ?? Math.min(12, height * 0.08);
+    const maxAmp = Math.max(0, centerY - innerPad);
+    const computedAmp = Math.min(rawAmp, maxAmp);
+    const visualWaveAmplitude = amplitudeOverride !== undefined ? Math.min(amplitudeOverride, maxAmp) : computedAmp;
     
     let path = '';
     const step = 2; // Pixels between points
@@ -83,48 +109,24 @@ export const SoundWave: React.FC<SoundWaveProps> = ({
     }
     
     return path;
-  }, [width, height, amplitude]);
+  }, [width, height, amplitude, padding]);
 
   useEffect(() => {
-    // Compute theta from breathing phase/progress
-    const theta = getTheta();
+    // Compute unified phase offset and segment-aware amplitude
+    const { phaseOffset, visualAmp } = getPhaseAndAmplitude();
 
-    // Detect wrap (e.g., from ~3π/2 back to 0 at new cycle) and adjust base
-    // Add exactly the theta drop to keep wavePhase continuous (no jump)
-    if (prevThetaRef.current !== null) {
-      const prevTheta = prevThetaRef.current;
-      const drop = theta - prevTheta; // negative on wrap
-      if (drop < -Math.PI / 2) {
-        // Advance base by the amount we lost so (base+theta) stays continuous
-        phaseBaseRef.current += prevTheta - theta;
-      }
-    }
-    prevThetaRef.current = theta;
-
-    // Phase that drives the whole wave
-    const wavePhase = phaseBaseRef.current + theta;
-
-    // Dimensions and amplitude
     const centerX = width / 2;
     const centerY = height / 2;
-    const baseWaveAmp = Math.min(height * 0.3, 40);
-    const visualWaveAmplitude = baseWaveAmp * (0.5 + amplitude * 0.5);
-    const innerPad = padding ?? Math.min(12, height * 0.08);
 
-    // Dot stays centered horizontally and rides the wave vertically
+    // Dot stays centered horizontally and rides the wave vertically using SAME function as path
     const dotX = centerX;
-    let dotY = centerY + Math.sin(wavePhase) * visualWaveAmplitude;
-    // Clamp for safety
-    const minY = innerPad;
-    const maxY = height - innerPad;
-    if (dotY < minY) dotY = minY;
-    if (dotY > maxY) dotY = maxY;
+    const dotY = centerY + Math.sin(phaseOffset) * visualAmp;
 
-    // Generate wave path with current phase
-    const wavePath = generateWavePath(wavePhase);
+    // Generate wave path with current piecewise-controlled phase
+    const wavePath = generateWavePath(phaseOffset, visualAmp);
     setCurrentPath(wavePath);
     setDotPosition({ x: dotX, y: dotY });
-  }, [getTheta, generateWavePath, width, height, amplitude, padding]);
+  }, [getPhaseAndAmplitude, generateWavePath, width, height]);
 
   return (
     <View style={[styles.container, { width, height }]}> 
