@@ -1,0 +1,14 @@
+{
+  "cli": { "version": ">= 10.0.0" },
+  "build": {
+    "development": { "developmentClient": true, "distribution": "internal" },
+    "preview":     { "distribution": "internal" },
+    "production":  { "android": { "gradleCommand": ":app:bundleRelease" } }
+  },
+  "submit": {
+    "production": {
+      "ios": { "ascAppId": "44f50d2d-8235-4e4b-99c0-962bff20d351" },
+      "android": { "track": "internal" }
+    }
+  }
+}
