@@ -57,7 +57,7 @@ Create or update your `eas.json` file:
   "submit": {
     "production": {
       "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
+        "serviceAccountKeyPath": ".eas/google-service-account.json",
         "track": "internal"
       }
     }
@@ -94,10 +94,10 @@ Ensure your `app.json` has proper Play Store configuration:
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+    Submit to Internal track:
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bhaktiwellness.breathpacer",
+    npm run eas:submit:android:prod
       "versionCode": 1,
       "permissions": [
         "WAKE_LOCK",

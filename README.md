@@ -52,20 +52,18 @@ components/
   npm install
   ```
 
-2. **Start Metro bundler (LAN by default)**
+2. **Start Metro bundler (Tunnel recommended)**
 
-  Recommended for most setups (fastest and most reliable on the same Wi‑Fi):
-
-  ```bash
-  npm run start:lan
-  # If you need to clear caches:
-  npm run start:clear
-  ```
-
-  Need a tunnel for off‑LAN testing, WSL2, or restrictive networks?
+  Works reliably across iOS, Android, and Web:
 
   ```bash
   npm run start:tunnel
+  ```
+
+  Optional: LAN mode (may work on Web and some networks; devices often fail). Use only if your network allows it:
+
+  ```bash
+  npm run start:lan
   ```
 
 3. **Open on your device**
@@ -280,40 +278,33 @@ The app includes a **Session** screen at `app/(tabs)/session.tsx` and the `Breat
 
 If you see “HTTP response error 404 … exp.direct is offline (ERR_NGROK_3200)”, the old tunnel URL in your QR has expired.
 
-- Prefer LAN for development:
-  - Ensure your iPhone and dev machine are on the same Wi‑Fi.
-  - Start in LAN mode:
-
-    ```bash
-    npm run start:lan
-    ```
-
-  - In Expo Go, pull‑to‑refresh the home screen, then rescan the QR. If needed, manually enter:
-
-    ````
-    exp://YOUR_LAN_IP:19000
-    ```
-    
-  - Quick checks from the iPhone’s browser:
-    - http://YOUR_LAN_IP:19000 should return JSON
-    - http://YOUR_LAN_IP:8081/status should say `packager-status:running`
-
-- If you must use a tunnel:
-  - Disable VPN/proxy or try a different network/hotspot.
-  - Create a fresh tunnel and rescan the new QR:
+- Prefer Tunnel for development:
+  - Start a fresh tunnel and rescan the new QR in Expo Go:
 
     ```bash
     npm run start:tunnel
     ```
 
-  - It’s normal for the old exp.direct link to 404 once the tunnel is replaced.
+  - Pull‑to‑refresh the Expo Go home screen before rescanning. It’s normal for the old exp.direct link to 404 once the tunnel is replaced.
+
+- If the tunnel is blocked (corporate/VPN networks), try:
+  - Disabling VPN/proxy or switching to a different network/hotspot.
+  - As a fallback, use LAN on the same Wi‑Fi (may work for Web and sometimes devices):
+
+    ```bash
+    npm run start:lan
+    ```
+
+    Quick LAN checks from the device browser:
+    - http://YOUR_LAN_IP:19000 should return JSON
+    - http://YOUR_LAN_IP:8081/status should say `packager-status:running`
 
 ## Team Workflow
 
 - All team members should:
   1. Pull latest code.
   2. Run `npm install`.
-  3. Prefer `npm run start:lan` for day‑to‑day development. Use `npm run start:tunnel` only when off‑LAN or on restrictive networks.
+  3. Prefer `npm run start:tunnel` for day‑to‑day development (works across iOS, Android, and Web). Use `npm run start:lan` only if your network setup allows it and devices connect reliably.
   4. Edit or add screens inside the `app/` directory.
 
 ## Learn More

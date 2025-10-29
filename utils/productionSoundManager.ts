@@ -3,10 +3,10 @@
  * Supports iOS, Android, and Web with real audio files
  */
 
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 
 export class ProductionSoundManager {
-  private sound: Audio.Sound | null = null;
+  private player: AudioPlayer | null = null;
   private isPlaying = false;
   private currentSoundType: string | null = null;
 
@@ -26,13 +26,13 @@ export class ProductionSoundManager {
 
   private async initializeAudio() {
     try {
-      // Set audio mode for background playback and mixing with other audio
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+      // Configure audio for background playback and mixing with other audio
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        // Prefer ducking other audio on Android and mixing elsewhere
+        interruptionModeAndroid: 'duckOthers',
+        interruptionMode: 'mixWithOthers',
       });
     } catch (error) {
       console.log('Audio initialization failed:', error);
@@ -66,15 +66,13 @@ export class ProductionSoundManager {
         return;
       }
 
-      // Load and play the audio file
-      // Using expo-audio: load sound and start playback
-      const sound = new Audio.Sound();
-      await sound.loadAsync(audioSource);
-      await sound.setIsLoopingAsync(true);
-      await sound.setVolumeAsync(0.3);
-      await sound.playAsync();
+      // Create and configure the audio player
+      const player = createAudioPlayer(audioSource, { updateInterval: 500 });
+      player.loop = true;
+      player.volume = 0.3;
+      player.play();
 
-      this.sound = sound;
+      this.player = player;
       this.isPlaying = true;
       this.currentSoundType = soundType;
 
@@ -88,10 +86,10 @@ export class ProductionSoundManager {
 
   async stop(): Promise<void> {
     try {
-      if (this.sound) {
-        await this.sound.stopAsync();
-        await this.sound.unloadAsync();
-        this.sound = null;
+      if (this.player) {
+        this.player.pause();
+        this.player.remove();
+        this.player = null;
       }
       this.isPlaying = false;
       this.currentSoundType = null;
@@ -103,8 +101,8 @@ export class ProductionSoundManager {
 
   async setVolume(volume: number): Promise<void> {
     try {
-      if (this.sound) {
-        await this.sound.setVolumeAsync(Math.max(0, Math.min(1, volume)));
+      if (this.player) {
+        this.player.volume = Math.max(0, Math.min(1, volume));
       }
     } catch (error) {
       console.log('Failed to set volume:', error);
