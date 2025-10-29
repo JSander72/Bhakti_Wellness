@@ -48,21 +48,30 @@ components/
 
 1. **Install dependencies**
 
-   ```bash
-   npm install
-   ```
+  ```bash
+  npm install
+  ```
 
-2. **Start Metro bundler with tunnel (recommended for WSL2/Windows)**
+2. **Start Metro bundler (LAN by default)**
 
-   ```bash
-   npx expo start --tunnel
-   ```
+  Recommended for most setups (fastest and most reliable on the same Wi‑Fi):
 
-   > Tunnel mode ensures Expo Go on your phone can connect reliably, even on strict Wi-Fi.
+  ```bash
+  npm run start:lan
+  # If you need to clear caches:
+  npm run start:clear
+  ```
+
+  Need a tunnel for off‑LAN testing, WSL2, or restrictive networks?
+
+  ```bash
+  npm run start:tunnel
+  ```
 
 3. **Open on your device**
-   - Scan the QR code with the **Expo Go** app (from App/Play Store).
-   - Or use iOS simulator / Android emulator.
+
+- In the Expo terminal, press `c` to show the QR and scan it with **Expo Go** (App Store / Play Store).
+- Or launch on simulators: press `i` for iOS simulator, `a` for Android emulator.
 
 ## Development Notes
 
@@ -267,18 +276,44 @@ The app includes a **Session** screen at `app/(tabs)/session.tsx` and the `Breat
 > - If you passed BPM instead of lengths, it defaults to 50/50 inhale/exhale.
 > - You can refine the pattern split or add haptics/sounds (we already include `expo-haptics` in dependencies).
 
+## iOS connection tips (ERR_NGROK_3200 / exp.direct 404)
+
+If you see “HTTP response error 404 … exp.direct is offline (ERR_NGROK_3200)”, the old tunnel URL in your QR has expired.
+
+- Prefer LAN for development:
+  - Ensure your iPhone and dev machine are on the same Wi‑Fi.
+  - Start in LAN mode:
+
+    ```bash
+    npm run start:lan
+    ```
+
+  - In Expo Go, pull‑to‑refresh the home screen, then rescan the QR. If needed, manually enter:
+
+    ````
+    exp://YOUR_LAN_IP:19000
+    ```
+    
+  - Quick checks from the iPhone’s browser:
+    - http://YOUR_LAN_IP:19000 should return JSON
+    - http://YOUR_LAN_IP:8081/status should say `packager-status:running`
+
+- If you must use a tunnel:
+  - Disable VPN/proxy or try a different network/hotspot.
+  - Create a fresh tunnel and rescan the new QR:
+
+    ```bash
+    npm run start:tunnel
+    ```
+
+  - It’s normal for the old exp.direct link to 404 once the tunnel is replaced.
+
 ## Team Workflow
 
 - All team members should:
   1. Pull latest code.
   2. Run `npm install`.
-  3. Use `npx expo start --tunnel` for consistent device testing.
-  4. Edit or add screens inside the `app/` directory.
-
-- All team members should:
-  1. Pull latest code.
-  2. Run `npm install`.
-  3. Use `npx expo start --tunnel` for consistent device testing.
+  3. Prefer `npm run start:lan` for day‑to‑day development. Use `npm run start:tunnel` only when off‑LAN or on restrictive networks.
   4. Edit or add screens inside the `app/` directory.
 
 ## Learn More

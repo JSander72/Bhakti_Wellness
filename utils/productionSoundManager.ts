@@ -3,7 +3,7 @@
  * Supports iOS, Android, and Web with real audio files
  */
 
-import { Audio } from 'expo-audio';
+import { Audio } from 'expo-av';
 
 export class ProductionSoundManager {
   private sound: Audio.Sound | null = null;

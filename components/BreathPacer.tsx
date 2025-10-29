@@ -251,6 +251,26 @@ export default function BreathPacer() {
         >
           <Text style={[styles.startText, { fontSize: responsiveSizes.startText }]}>Start</Text>
         </Pressable>
+        
+        {/* Privacy Policy Link */}
+        <Pressable 
+          style={styles.privacyLink}
+          onPress={() => {
+            // TODO: Replace with your actual privacy policy URL
+            const privacyUrl = "https://your-website.com/privacy-policy";
+            // For now, show an alert with the URL
+            Alert.alert(
+              "Privacy Policy",
+              `You can view our privacy policy at: ${privacyUrl}`,
+              [
+                { text: "OK", style: "default" }
+              ]
+            );
+          }}
+        >
+          <Text style={styles.privacyText}>Privacy Policy</Text>
+        </Pressable>
+        
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
@@ -335,6 +355,17 @@ const styles = StyleSheet.create({
   },
   startBtn: { marginTop: 16, backgroundColor: COLORS.red, borderRadius: 24, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
   startText: { color: "#fff", fontWeight: "800" },
+  privacyLink: {
+    marginTop: 12,
+    paddingVertical: 8,
+    alignSelf: "center",
+  },
+  privacyText: {
+    color: COLORS.creamText,
+    fontSize: 14,
+    opacity: 0.6,
+    textDecorationLine: "underline",
+  },
   soundSection: { width: "100%", marginTop: 22 },
 soundLabel: { color: COLORS.creamText, fontSize: 22, fontWeight: "700", marginBottom: 12 },
 soundScroll: { flexDirection: "row" },
