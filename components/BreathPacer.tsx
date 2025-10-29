@@ -256,16 +256,8 @@ export default function BreathPacer() {
         <Pressable 
           style={styles.privacyLink}
           onPress={() => {
-            // TODO: Replace with your actual privacy policy URL
-            const privacyUrl = "https://your-website.com/privacy-policy";
-            // For now, show an alert with the URL
-            Alert.alert(
-              "Privacy Policy",
-              `You can view our privacy policy at: ${privacyUrl}`,
-              [
-                { text: "OK", style: "default" }
-              ]
-            );
+            // Using `as any` to avoid typed-route mismatch before Expo Router regenerates types
+            router.push({ pathname: '/privacy-policy' as any });
           }}
         >
           <Text style={styles.privacyText}>Privacy Policy</Text>

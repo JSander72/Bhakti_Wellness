@@ -8,6 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "start:tunnel": "expo start --tunnel",
+    "start:tunnel:ipv4": "NODE_OPTIONS=--dns-result-order=ipv4first NGROK_REGION=us expo start --tunnel",
     "start:lan": "expo start --lan",
     "start:clear": "expo start --clear --lan",
     "start:dev-client": "expo start --dev-client --lan",

@@ -299,6 +299,39 @@ If you see “HTTP response error 404 … exp.direct is offline (ERR_NGROK_3200)
     - http://YOUR_LAN_IP:19000 should return JSON
     - http://YOUR_LAN_IP:8081/status should say `packager-status:running`
 
+## Tunnel connection issues (ngrok timeout)
+
+If `npm run start:tunnel` fails with:
+
+> CommandError: ngrok tunnel took too long to connect
+
+Try the following, in order:
+
+1. Force IPv4 DNS and pin ngrok region (helps when IPv6 routing is flaky):
+
+  ```bash
+  npm run start:tunnel:ipv4
+  ```
+
+1. Clear caches and restart the tunnel:
+
+  ```bash
+  npx expo start -c --tunnel
+  ```
+
+1. Network checks (tunnels commonly fail behind VPNs/proxies/firewalls): Temporarily disable VPN/proxy and retry. Switch to a different network or mobile hotspot. Ensure these domains are reachable: `ngrok.com`, `api.ngrok.com`.
+
+1. As a fallback, use LAN on the same Wi‑Fi:
+
+  ```bash
+  npm run start:lan
+  ```
+
+Notes:
+
+- You can also try a different ngrok region by setting `NGROK_REGION` (e.g., `eu`, `ap`).
+- If the issue persists, update the Expo CLI (`npx expo --version`) to the latest 54.x and retry.
+
 ## Team Workflow
 
 - All team members should:
