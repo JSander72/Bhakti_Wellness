@@ -18,9 +18,11 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
+          "audio",
           "audio"
         ],
-        "NSMicrophoneUsageDescription": "This app may use audio features for breath pacing guidance."
+        "NSMicrophoneUsageDescription": "This app may use audio features for breath pacing guidance.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -35,7 +37,9 @@
       },
       "permissions": [
         "WAKE_LOCK",
-        "VIBRATE"
+        "VIBRATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
