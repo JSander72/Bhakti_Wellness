@@ -21,7 +21,7 @@ Last Updated: October 28, 2025
 
 Developer Information
 App: Bhakti Breath Pacer
-Developer: Bhakti Wellness / James Sanders, 
+Developer: Bhakti Wellness / James Sanders, Venkata Vaibhav Suryadevara, Tameika Brinson, & Sean Desiree
 Contact Email: [Your Email Address]
 Contact Address: [Your Business Address]
 Website: [Your Website URL]

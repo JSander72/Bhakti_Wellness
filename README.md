@@ -1,7 +1,7 @@
 
 # Bhakti Breath Pacer – Expo Router App 🌱
 
-This project is an [Expo](https://expo.dev) app scaffolded with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app) and using [Expo Router](https://docs.expo.dev/router/introduction/) for navigation. The app guides users through a simple, focused breathing session with a clear, step-by-step navigation flow.
+This is an [Expo](https://expo.dev) + [Expo Router](https://docs.expo.dev/router/introduction/) app that guides users through simple, focused breathing sessions with a clean, step‑by‑step flow.
 
 ## App Navigation Flow
 
@@ -27,22 +27,47 @@ This project is an [Expo](https://expo.dev) app scaffolded with [`create-expo-ap
 
 ```
 app/
-  index.tsx            // Redirects to splash screen
-  splash.tsx           // Splash / Welcome screen
+  _layout.tsx           // Root layout
+  +not-found.tsx        // 404 route for web
+  index.tsx             // Redirects to splash screen
+  splash.tsx            // Splash / Welcome screen
+  privacy-policy.tsx    // In-app privacy policy screen
   (tabs)/
-   _layout.tsx        // Tabs layout (Home + Explore)
-   index.tsx          // Home tab – shows BreathPacer screen
-   explore.tsx        // Explore tab (default template)
-   session.tsx        // Breathing session screen (after Start)
+    _layout.tsx         // Tabs layout (Home)
+    index.tsx           // Home tab – shows BreathPacer screen
+    session.tsx         // Breathing session screen (after Start)
+
 components/
-  BreathPacer.tsx      // Main breathing pacer UI
+  BreathPacer.tsx       // Main breathing pacer UI
+  BreathingCircle.tsx   // Visual breathing circle
+  HapticTab.tsx         // Tab item with haptics
+  SoundWave.tsx         // Decorative sound wave
+  ThemedText.tsx        // Theme-aware text
+  ThemedView.tsx        // Theme-aware view
+  ui/
+    IconSymbol(.ios).tsx
+    TabBarBackground(.ios).tsx
+
+utils/
+  productionSoundManager.ts  // Audio helpers (expo-audio)
+
+assets/
+  fonts/ images/ sounds/
 ```
 
 - `app/index.tsx` redirects to the splash screen.
 - `app/splash.tsx` is the welcome screen with a Start button.
 - `app/(tabs)/index.tsx` is the Home tab, rendering the `BreathPacer` screen.
-- `app/(tabs)/session.tsx` is the session screen (receives params from BreathPacer).
+- `app/(tabs)/session.tsx` is the session screen (receives params from `BreathPacer`).
+- `app/privacy-policy.tsx` displays the app privacy policy.
 - The project uses **TypeScript** by default, but JS will work too.
+
+## Tech stack
+
+- Expo SDK 54, Expo Router 6
+- React 19, React Native 0.81
+- TypeScript 5.9, ESLint 9 (with `eslint-config-expo`)
+- Extras: `expo-haptics`, `expo-audio`, `react-native-reanimated`, `react-native-svg`, `react-native-web`
 
 ## Getting Started
 
@@ -71,6 +96,31 @@ components/
 - In the Expo terminal, press `c` to show the QR and scan it with **Expo Go** (App Store / Play Store).
 - Or launch on simulators: press `i` for iOS simulator, `a` for Android emulator.
 
+### Common npm scripts
+
+These are available in `package.json`:
+
+- Dev
+  - `npm start` – start Metro (interactive menu)
+  - `npm run start:tunnel` – start with ngrok tunnel (recommended)
+  - `npm run start:tunnel:ipv4` – force IPv4 DNS + set ngrok region, helpful on flaky IPv6 networks
+  - `npm run start:lan` – start in LAN mode
+  - `npm run start:clear` – start and clear caches (LAN)
+  - `npm run start:dev-client` – start for Dev Client
+  - `npm run android` / `npm run ios` / `npm run web`
+
+- Linting
+  - `npm run lint`
+
+- EAS (Build/Submit)
+  - `npm run eas:whoami` – verify EAS auth
+  - `npm run eas:info` – show project info
+  - `npm run eas:build:android` – Android production build
+  - `npm run eas:build:android:preview` – Android preview build
+  - `npm run eas:build:android:dev` – Android dev build
+  - `npm run eas:submit:android` – submit last built Android binary
+  - `npm run eas:submit:android:prod` – submit with production profile
+
 ## Development Notes
 
 - If you see version mismatches, run:
@@ -90,12 +140,38 @@ components/
 
 - **Expo Router** uses file-based routing. The file/folder structure inside `app/` defines the navigation.
 
+- Postinstall patch: We apply a small compatibility patch for `expo-modules-core` automatically via `scripts/patch-expo-modules-core.js` (runs on `npm install`).
+
 ## User Flow Example
 
 1. Launch the app (in Expo Go or simulator).
 2. See the splash screen. Tap **Start**.
 3. On the Home screen, set your breathing parameters and tap **Start**.
 4. The app navigates to the Session screen, where your session will run (animation coming soon).
+
+## Builds and releases
+
+- We use [EAS Build](https://docs.expo.dev/build/introduction/). Quick commands:
+
+  ```bash
+  # Check auth and project linkage
+  npm run eas:whoami
+  npm run eas:info
+
+  # Android builds
+  npm run eas:build:android           # production
+  npm run eas:build:android:preview  # preview
+  npm run eas:build:android:dev      # development
+  ```
+
+- For Play Store specifics, see `PLAY_STORE_BUILD_GUIDE.md`.
+
+- EAS config lives in `eas.json`; app metadata in `app.json`.
+
+## Privacy and data safety
+
+- In‑app screen: `app/privacy-policy.tsx`.
+- Repository docs: `PRIVACY_POLICY.md` and `DATA_SAFETY_GUIDE.md`.
 
 ## Adding New Features
 
@@ -272,7 +348,7 @@ The app includes a **Session** screen at `app/(tabs)/session.tsx` and the `Breat
 >
 > - This is a minimal demo: it animates a circle size for **Inhale / Exhale / Hold** and tracks a session countdown. When time hits 0, it navigates back.
 > - If you passed BPM instead of lengths, it defaults to 50/50 inhale/exhale.
-> - You can refine the pattern split or add haptics/sounds (we already include `expo-haptics` in dependencies).
+> - You can refine the pattern split or add haptics/sounds (we already include `expo-haptics` and `expo-audio`).
 
 ## iOS connection tips (ERR_NGROK_3200 / exp.direct 404)
 
